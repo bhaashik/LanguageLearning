@@ -4,6 +4,7 @@ import {glossLegend} from './linguistics.js';
 import {AudioLibrary} from './audio.js';
 import {audioPage} from './audio-ui.js';
 import {validateEndpoint} from './audio-store.js';
+import {defaultOpenAIVoice} from './speech-presets.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -291,6 +292,25 @@ async function handleAudioClick(button){
     if(button.dataset.clipDelete){await audio.remove(button.dataset.clipDelete);toast('Saved clip deleted.');return;}
     const target=audioTargets[audioTargetId];
     switch(button.dataset.audio){
+      case 'openai-preset':{
+        const preset=audio.openaiPreset;
+        const profile=audio.add({kind:'service',name:`OpenAI · ${preset.voice}`,provider:'openai',model:preset.model,voice:preset.voice,gender:'unspecified',endpoint:preset.endpoint});
+        render();toast(`OpenAI ${profile.voice} selected. Connect its gateway before generating new audio.`);break;
+      }
+      case 'openai-check':{
+        const preset=audio.openaiPreset;const endpoint=validateEndpoint(preset.endpoint);
+        preset.status='Checking the OpenAI gateway…';render();
+        try{
+          const response=await fetch(`${endpoint}/models`,{signal:AbortSignal.timeout(12000)});
+          if(!response.ok)throw Error(`Gateway returned HTTP ${response.status}. Run or connect the OpenAI speech gateway; GitHub Pages cannot run it.`);
+          const data=await response.json();
+          if(data.provider!=='openai')throw Error('This gateway is not configured for OpenAI. Set BHAASA_TTS_PROVIDER=openai on its server.');
+          if(!data.configured){preset.status='OpenAI is not connected. Add BHAASA_TTS_API_KEY securely on the gateway server, then restart it. Do not paste an API key into this app.';}
+          else if(!Array.isArray(data.models)||!data.models.some(m=>m.id===preset.model)){preset.status=`The gateway has a credential configured, but ${preset.model} is not enabled. Update its BHAASA_TTS_MODELS allowlist.`;}
+          else preset.status='The gateway has OpenAI configured for this model. Generate a sample to verify API access, billing, and pronunciation; no paid request was made by this check.';
+        }catch(error){preset.status=error.message;}
+        render();break;
+      }
       case 'play':await audio.play(target);break;
       case 'generate':await audio.generate(target,true,true);toast('Generated audio saved. The previous clip for this identity has been replaced if present.');break;
       case 'record':await audio.startRecording(target);break;
@@ -353,6 +373,9 @@ $('#app').addEventListener('input',e=>{if(e.target.id==='word-search'){search=e.
 $('#app').addEventListener('change',async e=>{
   if(e.target.id==='word-group'){wordGroup=e.target.value;$('#word-results').innerHTML=wordResults();savePosition();}
   try{
+    if(e.target.id==='openai-model'){audio.openaiPreset.model=e.target.value;audio.openaiPreset.voice=defaultOpenAIVoice(e.target.value);audio.openaiPreset.status='';render();}
+    if(e.target.id==='openai-voice'){audio.openaiPreset.voice=e.target.value;}
+    if(e.target.id==='openai-endpoint'){audio.openaiPreset.endpoint=e.target.value;audio.openaiPreset.status='';}
     if(e.target.id==='active-voice'){audio.choose(e.target.value);render();}
     if(e.target.id==='audio-auto-save'){audio.autoSave=e.target.checked;audio.persist();}
     if(e.target.id==='voice-gender-filter'){$('#active-voice').querySelectorAll('option').forEach(o=>{o.hidden=e.target.value!=='all'&&o.dataset.gender!==e.target.value;});}

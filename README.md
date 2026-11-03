@@ -34,7 +34,7 @@ Open **Voices & recordings**. Available options are:
 
 1. **Device Malayalam voices.** The browser reports its installed voices; Bhaasa only uses Malayalam voices. Choose a voice explicitly. Gender is unspecified unless you or a provider supplies a label. Web Speech does not expose audio bytes, so its output cannot be saved as a recording by this app.
 2. **Human audio.** Record with a microphone or import an audio file for any symbol, sound, word, phrase, lesson, or section. “Stop & save” commits the microphone recording; the maximum recording is two minutes. Native mobile/browser permissions still apply. Individual imports are limited to 20 MB.
-3. **Speech services/models.** Add a named profile with provider, speech-model ID, voice ID, optional gender label, and a gateway URL. The gateway keeps provider credentials on its server. “Discover service models” reads the gateway’s configured model list. A text-only LLM is not automatically a speech model; provider subscriptions, language support, and voice quality must be checked independently.
+3. **Speech services/models.** OpenAI is the preferred provider; the OpenAI quick-setup panel supplies current model/voice choices and a connection check. Add a named profile with provider, speech-model ID, voice ID, optional gender label, and a gateway URL. The gateway keeps provider credentials on its server. “Discover service models” reads the gateway’s configured model list. A text-only LLM is not automatically a speech model; provider subscriptions, language support, and voice quality must be checked independently.
 
 “Save the first time” is enabled by default for service audio. Later plays reuse the stored clip without another generation request. Disable it for temporary generation. “Generate & replace clip” explicitly regenerates and overwrites the current identity. Device speech and provider models may need internet; saved files do not.
 
@@ -51,19 +51,37 @@ Export batches are limited to 100 MB; import accepts Bhaasa’s own ZIP STORE ar
 
 ### Optional local speech gateway
 
-`scripts/serve.mjs` includes a companion at `/api/speech`. No provider is configured by default. It binds to loopback when a provider is enabled and is excluded from the static build. Configure it through your process environment or a secure secret manager; do not commit credentials or place them in the browser.
+`scripts/serve.mjs` includes a companion at `/api/speech`. OpenAI is the default provider, with `gpt-realtime-2.1-mini` and `marin`. Generation stays disabled until an API credential is configured. Install the optional server-only transport first:
+
+```sh
+npm run speech:install
+```
+
+The transport dependencies are pinned in `gateway/package-lock.json`. They are not required for the static app, tests, microphone recordings, or cached playback, and are never copied into `dist/`. The gateway binds to loopback when a provider is enabled. Configure credentials through your process environment or a secure secret manager; do not commit them or place them in the browser.
+
+In the cloud environment draft, `BHAASA_TTS_API_KEY` is declared as a secret sent only to `api.openai.com`. Add its value securely in environment settings, review/save and publish the environment, and restart the gateway. The environment also needs outbound access to `api.openai.com`; a draft declaration alone does not apply network or credential changes. OpenAI API billing/access must be configured separately from a ChatGPT subscription.
 
 | Variable | Purpose |
 | --- | --- |
 | `BHAASA_TTS_PROVIDER` | `openai`, `elevenlabs`, or `custom` |
 | `BHAASA_TTS_API_KEY` | Provider credential; read only by the companion server |
-| `BHAASA_TTS_MODELS` | Comma-separated allowlist of speech-model IDs; used for discovery and request validation |
-| `BHAASA_TTS_VOICE` | Optional voice ID listed by discovery |
-| `BHAASA_TTS_URL` | Optional provider URL override; required for `custom`; use HTTPS or local loopback |
+| `BHAASA_TTS_MODELS` | Comma-separated allowlist for discovery/validation; defaults to `gpt-realtime-2.1-mini` |
+| `BHAASA_TTS_VOICE` | Default `marin` for OpenAI; the UI can choose other supported voices |
+| `BHAASA_TTS_URL` | REST provider URL override; required for `custom`; use HTTPS or local loopback. The OpenAI Realtime adapter always uses `api.openai.com`. |
 | `BHAASA_TTS_ALLOWED_ORIGIN` | Optional exact browser origin for an app hosted elsewhere; defaults to the companion’s own origin |
 
-The OpenAI adapter uses `/v1/audio/speech`, default model `gpt-4o-mini-tts`. The ElevenLabs adapter uses `/v1/text-to-speech/<voice-id>`, default model `eleven_multilingual_v2`. These defaults are adapter examples, **not a guarantee of Malayalam support, current account access, or pronunciation quality**. Set models and voice IDs to ones your account actually supports. For a local speech engine, use `custom` with its HTTP loopback endpoint and a configured model list; no key is required for an unauthenticated local engine.
+OpenAI Realtime models use the server-side WebSocket adapter at `/v1/realtime`. Each reading creates one isolated session, requests an exact Malayalam reading, collects PCM output, closes the connection on completion/error/timeout, and returns 24 kHz mono WAV. The gateway uses the inherited HTTPS proxy and CA trust. API keys never enter browser JavaScript. Generated speech is AI audio and must be auditioned; exact reproduction of symbols, questions, and phonetic contrasts is not guaranteed by a generative model.
 
+Recommended voices are `marin` or `cedar`; all supported built-in Realtime voices are listed in the UI with gender left unspecified. A custom OpenAI voice ID starting `voice_` is forwarded using the API's custom-voice object format. To try another model, add it to the gateway allowlist and choose it in the app; changing model/voice keeps a separate cache collection.
+
+The old Speech API (`/v1/audio/speech`) remains supported for existing `gpt-4o-mini-tts`, `tts-1`, and `tts-1-hd` profiles and returns MP3. **OpenAI's current API definitions schedule these models for retirement on January 6, 2027**, and recommend `gpt-realtime-2.1-mini` for new integrations. The UI labels the older choices accordingly. Cached recordings remain usable after model retirement. Model availability and account permissions must still be verified with a real, authorized sample. Requests are limited to 4096 characters for OpenAI; choose a lesson/item rather than a large whole section.
+
+API definitions checked from OpenAI's official generated SDK:
+
+- [Speech API and deprecation notes](https://github.com/openai/openai-node/blob/master/src/resources/audio/speech.ts)
+- [Realtime models, events, audio formats, and voice options](https://github.com/openai/openai-node/blob/master/src/resources/realtime/realtime.ts)
+
+The ElevenLabs adapter remains available with model `eleven_multilingual_v2`. For a local speech engine, use `custom` with its HTTP loopback endpoint and configured model list. These choices do not guarantee Malayalam pronunciation quality or current subscription access.
 In managed environments using an HTTPS proxy, Node 24 can honor the inherited proxy with `NODE_USE_ENV_PROXY=1 npm run dev`. Keep proxy routing and TLS verification enabled. There is no provider credential in the current app or static build, and live paid-provider synthesis has not been validated.
 
 A separately hosted compatible gateway implements:
@@ -80,7 +98,7 @@ npm test
 npm run build
 ```
 
-`dist/` contains only the public app, bundled fonts/license, and documentation. It excludes server code, tests, environment files, source PDFs, recordings, progress, and provider credentials. No dependency installation is needed.
+`dist/` contains only the public app, bundled fonts/license, and documentation. It excludes server code (including the optional `gateway/` dependencies), tests, environment files, source PDFs, recordings, progress, and provider credentials. No dependency installation is needed for the static build.
 
 The workflow in `.github/workflows/pages.yml` tests and builds on pushes to `main`, uploads `dist/`, and deploys using GitHub Pages. Enable **Settings → Pages → Source: GitHub Actions** on the repository. An authorized API connection can configure this too. Pushing code or a workflow alone does not prove a live Pages deployment succeeded.
 
@@ -97,6 +115,6 @@ python3 tests/browser.py
 python3 tests/features.py
 ```
 
-Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, and microphone capture using Chromium’s test microphone. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.
+Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, and microphone capture using Chromium’s test microphone. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.
 
 Keep stable content IDs when editing the curriculum. The Noto Malayalam and Devanagari fonts use the SIL Open Font License; attribution is in `assets/FONT-LICENSE.txt`.

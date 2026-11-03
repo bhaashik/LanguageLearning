@@ -193,5 +193,56 @@ with sync_playwright() as p:
     state=lp.evaluate('(k)=>JSON.parse(localStorage.getItem(k))',KEY)
     assert state['version']==2 and state['items']['v-0']['attempts']==2 and state['lessons']['first-vowels']==.5
     print('PASS: automatic migration from the original app preserves prior learning')
+
+    # OpenAI preference: useful presets, an honest connection check, and saved audio.
+    openai=context.browser.new_context(accept_downloads=True)
+    op=openai.new_page()
+    op.goto(BASE+'#audio/food-0')
+    expect(op.locator('#openai-model')).to_have_value('gpt-realtime-2.1-mini')
+    expect(op.locator('#openai-voice')).to_have_value('marin')
+    expect(op.locator('#openai-voice option')).to_have_count(10)
+    op.locator('#openai-model').select_option('tts-1')
+    expect(op.locator('#openai-voice')).to_have_value('alloy')
+    expect(op.locator('#openai-voice option')).to_have_count(6)
+    op.locator('.openai-setup details').evaluate('e=>e.open=true')
+    expect(op.locator('.openai-setup')).to_contain_text('January 6, 2027')
+    op.locator('#openai-model').select_option('gpt-realtime-2.1-mini')
+    op.locator('#openai-voice').select_option('cedar')
+    op.locator('#openai-endpoint').fill('https://openai-fixture.test/api/speech')
+    op.locator('#openai-voice').click()  # commit the endpoint change before rendering a check
+    setup={'ready':False,'calls':0}
+    def openai_models(route):
+        route.fulfill(json={'provider':'openai','configured':setup['ready'],'models':[{'id':'gpt-realtime-2.1-mini','api':'realtime'}] if setup['ready'] else []},headers={'Access-Control-Allow-Origin':'*'})
+    def openai_audio(route):
+        assert route.request.post_data_json['model']=='gpt-realtime-2.1-mini'
+        assert route.request.post_data_json['voice']=='cedar'
+        setup['calls']+=1
+        route.fulfill(status=200,content_type='audio/wav',body=WAV,headers={'Access-Control-Allow-Origin':'*'})
+    op.route('https://openai-fixture.test/api/speech/models',openai_models)
+    op.route('https://openai-fixture.test/api/speech',openai_audio)
+    op.locator('[data-audio="openai-check"]').click()
+    expect(op.locator('#openai-status')).to_contain_text('Add BHAASA_TTS_API_KEY securely')
+    assert setup['calls']==0
+    setup['ready']=True
+    op.locator('[data-audio="openai-check"]').click()
+    expect(op.locator('#openai-status')).to_contain_text('no paid request was made')
+    op.locator('[data-audio="openai-preset"]').click()
+    preferences=op.evaluate("JSON.parse(localStorage.getItem('bhaasa.voices.v1'))")
+    selected=next(p for p in preferences['profiles'] if p['id']==preferences['activeId'])
+    assert selected['provider']=='openai' and selected['model']=='gpt-realtime-2.1-mini' and selected['voice']=='cedar' and selected['gender']=='unspecified'
+    op.locator('[data-audio="play"]').click()
+    expect(op.locator('.clip-row')).to_have_count(1)
+    assert clips(op)[0]['mime']=='audio/wav' and setup['calls']==1
+    op.locator('[data-audio="play"]').click()
+    assert setup['calls']==1
+    expect(op.locator('#offline-status')).to_have_text('Available offline')
+    openai.set_offline(True);op.reload()
+    expect(op.locator('.clip-row')).to_have_count(1)
+    op.locator('[data-audio="play"]').click()
+    assert setup['calls']==1
+    openai.set_offline(False)
+    op.screenshot(path=str(OUT/'openai-setup.png'),full_page=True)
+    openai.close()
+    print('PASS: OpenAI presets, retirement labels, truthful connection check, WAV caching, and offline reuse')
     browser.close()
     print('All Bhaasa feature checks passed. Speech generation used a test service, not a paid provider.')
