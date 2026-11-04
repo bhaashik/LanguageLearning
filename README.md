@@ -43,13 +43,15 @@ The provider menu offers **OpenAI**, **Google Gemini**, **Anthropic Claude**, **
 
 Touchscreens work through Pointer Events: draw with a finger or stylus on the pad, and scroll outside it. Continuous native touch input is covered by Chromium browser tests. Device-specific stylus features and palm rejection depend on the browser/device.
 
+If **Check my tracing** is greyed out, read the status directly below the buttons. Draw a full-size symbol over the pale guide and release your finger, pen, or mouse button. A tap, short line, or the animated demonstration alone does not count as a completed drawing. If the practice guide could not load, use **Retry loading practice guide**; retrying keeps your ink. This check works without an API key or OCR gateway, including with **Off · tracing only** selected.
+
 The bundled guides are centerlines derived from **Noto Sans Malayalam Regular**: 65 have one suggested stroke, 16 have two, and three have three because marks are disconnected. A connected route can retrace a short segment. These are font-based practice suggestions, not a researched account of conventional Malayalam handwriting. **A Malayalam teacher should verify or replace them before they are described as correct stroke order.** Detached signs are kept separate rather than forcing every symbol into one or two strokes.
 
 Under **Teacher guides, OCR connection & exports**, export your strokes as Bhaasa JSON, or import an instructor's stroke-guide JSON for the same symbol. Imported paths are labelled custom guides and can be replaced with **Use font guide**. Export/import does not establish that a guide is linguistically correct. Custom guides and current drawing drafts are kept in progress backups.
 
 ### Run OCR on your computer
 
-The OCR gateway is part of the same local server; no new runtime dependency is needed. Configure one or more providers in `.env.local`. Keys stay on that server; do not enter API keys into the browser's endpoint field. Every cloud provider requires its own API access and billing. A ChatGPT, Gemini, or Claude chat subscription does not establish API access.
+The OCR gateway is part of the same local server; no new runtime dependency is needed. Configure one or more providers in `.env.local`. Keys stay on that server; do not enter API keys into the browser's endpoint field. Every cloud provider requires its own API access and any applicable quota or billing setup. Free API tiers depend on the selected provider, model, project, and region. A ChatGPT, Gemini, or Claude chat subscription does not establish API access.
 
 After `git pull`, make a local file named exactly `.env.local` (already ignored by Git):
 
@@ -68,6 +70,8 @@ node --env-file=.env.local scripts/serve.mjs
 ```
 
 Open `http://127.0.0.1:4173` consistently in the same browser. In a symbol's tracing pad, select your provider, draw, and click the recognition button. Expand **Teacher guides, OCR connection & exports → Check OCR connection** to check configuration and discover allowed model names without a paid request. This checks the gateway's settings, not live account authorization.
+
+For this default local setup, the OCR gateway field is `http://127.0.0.1:4173/api/ocr`. It is the address of your running Bhaasa server, not an OAuth origin/redirect URI or Google's API URL. Google Gemini uses `BHAASA_OCR_GEMINI_API_KEY` plus `BHAASA_OCR_GEMINI_MODEL` in `.env.local`; no OAuth web-client credentials are used. If you are viewing a public/static copy and have configured a local key, open the local Bhaasa app at `http://127.0.0.1:4173` to use that server and keep requests on the same origin. A static server alone does not provide the OCR gateway. Changing origins uses a separate browser progress store; use progress/audio exports if moving between origins.
 
 | Provider selection | Local server variables |
 | --- | --- |
