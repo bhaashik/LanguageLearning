@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
 import {ocrConfigurations,publicOCRConfig,ocrProviderRequest,parseOCRResult} from '../scripts/ocr-providers.mjs';
 import {handleOCR,ocrServerEnabled} from '../scripts/ocr.mjs';
-import {loadOCRSettings,saveOCRSettings,ocrSelection,ocrRecognitionKey,recognitionPayload} from '../ocr-settings.js';
+import {loadOCRSettings,saveOCRSettings,ocrSelection,ocrRecognitionKey,recognitionPayload,ocrErrorMessage} from '../ocr-settings.js';
 import {emptyProgress,recordHandwritingRecognition,validateProgress} from '../learning.js';
 
 const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
@@ -25,10 +25,10 @@ function envelope(provider,result=transcription){
     custom:result
   }[provider];
 }
-async function request(body,{env=fixture,method='POST',fetcher=()=>assert.fail('Unexpected provider call')}={}){
+async function request(body,{env=fixture,method='POST',query='',fetcher=()=>assert.fail('Unexpected provider call')}={}){
   const req=Readable.from([Buffer.from(JSON.stringify(body))]);req.method=method;req.headers={'content-type':'application/json',origin:'http://localhost'};
   const result={};const res={writeHead(status,headers){Object.assign(result,{status,headers});return this;},end(body){result.body=body;return this;}};
-  await handleOCR(req,res,new URL('http://localhost/api/ocr'),{env,fetcher});return result;
+  await handleOCR(req,res,new URL('http://localhost/api/ocr'+query),{env,fetcher});return result;
 }
 
 test('OCR credentials stay with their provider and public configuration never exposes them',async()=>{
@@ -112,6 +112,74 @@ test('provider failures never leak the upstream response or record a fabricated 
   const denied=await request({image:png,provider:'anthropic'},{fetcher:async()=>new Response('private vendor details',{status:401})});
   assert.equal(denied.status,401);assert.ok(!denied.body.includes('private'));
   const bad=await request({image:png,provider:'compatible'},{fetcher:async()=>Response.json({choices:[]})});assert.equal(bad.status,502);
+});
+
+test('Gemini resource prefixes and whitespace resolve to the same allowed API model',async()=>{
+  for(const model of ['gemini-vision-fixture','models/gemini-vision-fixture',' models/gemini-vision-fixture ']){
+    const result=await request({image:png,provider:'gemini',model},{fetcher:async url=>{
+      assert.ok(url.includes('/gemini-vision-fixture:generateContent'));return Response.json(envelope('gemini'));
+    }});
+    assert.equal(result.status,200);assert.equal(JSON.parse(result.body).model,'gemini-vision-fixture');
+  }
+});
+
+test('brand names and disallowed models produce actionable local errors before a provider call',async()=>{
+  const mismatch=await request({image:png,provider:'gemini',model:'different-model'}),body=JSON.parse(mismatch.body);
+  assert.equal(mismatch.status,400);assert.equal(body.error,'model_not_allowed');assert.equal(body.source,'gateway');
+  assert.deepEqual(body.models,['gemini-vision-fixture','gemini-other-fixture']);
+  assert.match(ocrErrorMessage(mismatch.status,body,'gemini'),/Clear the optional Model field/);
+  assert.match(ocrErrorMessage(mismatch.status,body,'gemini'),/gemini-vision-fixture/);
+  assert.equal(JSON.parse((await request({image:png,provider:'gemini',model:'Gemini'})).body).error,'invalid_model_id');
+  const env={...fixture,BHAASA_OCR_GEMINI_MODELS:'',BHAASA_OCR_GEMINI_MODEL:'Gemini'};
+  const config=ocrConfigurations(env).gemini;assert.equal(config.configured,false);assert.equal(config.configurationError,'invalid_model_id');
+  const invalidDefault=await request({image:png,provider:'gemini'},{env});
+  assert.equal(JSON.parse(invalidDefault.body).error,'invalid_model_id');
+});
+
+test('Gemini upstream errors remain distinct from gateway validation and never expose raw details',async()=>{
+  const scenarios=[
+    [400,{status:'INVALID_ARGUMENT',message:'API key not valid: private-gemini-fixture',details:[{reason:'API_KEY_INVALID',metadata:{key:'private-gemini-fixture'}}]},'invalid_credentials'],
+    [400,{status:'INVALID_ARGUMENT',message:'private unknown validation details'},'provider_request_invalid'],
+    [400,{status:'FAILED_PRECONDITION',message:'User location is not supported'},'provider_region_unavailable'],
+    [403,{details:[{reason:'API_KEY_HTTP_REFERRER_BLOCKED'}]},'credential_restricted'],
+    [403,{details:[{reason:'SERVICE_DISABLED'}]},'api_disabled'],
+    [404,{message:'private model info'},'provider_model_unavailable'],
+    [429,{message:'private quota info'},'provider_quota_exceeded'],
+    [503,{message:'private unavailable info'},'provider_unavailable']
+  ];
+  for(const [status,error,code] of scenarios){
+    const result=await request({image:png,provider:'gemini'},{fetcher:async()=>Response.json({error},{status})});
+    const body=JSON.parse(result.body);assert.equal(result.status,status);assert.equal(body.source,'provider');assert.equal(body.error,code);
+    assert.ok(!result.body.includes('private'));assert.notEqual(body.error,'model_not_allowed');
+    assert.ok(!ocrErrorMessage(status,body,'gemini').includes('private'));
+  }
+  const fallback=ocrErrorMessage(400,{message:'private key in unrecognized response'},'gemini');assert.ok(!fallback.includes('private'));
+});
+
+test('Gemini model listing uses its server key, follows pagination and never submits an image',async()=>{
+  let calls=0;
+  const result=await request({}, {method:'GET',query:'?action=models&provider=gemini',fetcher:async(url,options)=>{
+    const parsed=new URL(url);assert.equal(parsed.origin,'https://generativelanguage.googleapis.com');assert.equal(parsed.pathname,'/v1beta/models');
+    assert.equal(parsed.searchParams.get('pageSize'),'1000');assert.equal(options.headers['x-goog-api-key'],fixture.BHAASA_OCR_GEMINI_API_KEY);
+    assert.equal(options.body,undefined);assert.equal(options.redirect,'error');assert.ok(!url.includes(fixture.BHAASA_OCR_GEMINI_API_KEY));
+    calls++;
+    if(calls===1)return Response.json({models:[{name:'models/gemini-vision-fixture',supportedGenerationMethods:['generateContent'],description:'private info'},{name:'models/embedding-fixture',supportedGenerationMethods:['embedContent']}],nextPageToken:'private-page-token'});
+    assert.equal(parsed.searchParams.get('pageToken'),'private-page-token');
+    return Response.json({models:[{name:'models/gemini-other-fixture',supportedGenerationMethods:['generateContent']}]});
+  }});
+  const body=JSON.parse(result.body);assert.equal(result.status,200);assert.equal(calls,2);
+  assert.deepEqual(body.models,['gemini-other-fixture','gemini-vision-fixture']);assert.equal(body.configuredModelListed,true);assert.equal(body.complete,true);
+  assert.ok(!result.body.includes('private'));assert.ok(!result.body.includes(fixture.BHAASA_OCR_GEMINI_API_KEY));
+});
+
+test('model listing diagnoses invalid keys, works without a valid default model and never borrows an OpenAI key',async()=>{
+  const query='?action=models&provider=gemini',method='GET';
+  assert.equal((await request({},{query,method,env:{BHAASA_OCR_OPENAI_API_KEY:'openai-only'}})).status,503);
+  assert.equal((await request({},{query:'?action=models&provider=openai',method})).status,400);
+  const denied=await request({},{query,method,fetcher:async()=>Response.json({error:{message:'private API key not valid',details:[{reason:'API_KEY_INVALID'}]}},{status:400})});
+  assert.equal(JSON.parse(denied.body).error,'invalid_credentials');assert.ok(!denied.body.includes('private'));
+  const result=await request({},{query,method,env:{...fixture,BHAASA_OCR_GEMINI_MODELS:'',BHAASA_OCR_GEMINI_MODEL:'Gemini'},fetcher:async()=>Response.json({models:[{name:'models/gemini-vision-fixture',supportedGenerationMethods:['generateContent']}]})});
+  assert.equal(result.status,200);assert.equal(JSON.parse(result.body).configuredModelListed,false);
 });
 
 test('browser preferences migrate legacy endpoints and keep independent provider/model identities',()=>{
