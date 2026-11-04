@@ -1,10 +1,11 @@
 import {mkdir,copyFile,cp,rm} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-const files=['index.html','styles.css','app.js','content.js','learning.js','linguistics.js','sounds.js','audio.js','audio-store.js','audio-ui.js','speech-presets.js','zip.js','sw.js','manifest.webmanifest'];
+const files=['index.html','styles.css','app.js','content.js','learning.js','linguistics.js','sounds.js','audio.js','audio-store.js','audio-ui.js','speech-presets.js','tracing.js','tracing-pad.js','zip.js','sw.js','manifest.webmanifest'];
 await rm(`${root}dist`,{recursive:true,force:true});await mkdir(`${root}dist`);
 for(const file of files)await copyFile(`${root}${file}`,`${root}dist/${file}`);
 await cp(`${root}assets`,`${root}dist/assets`,{recursive:true});
+await cp(`${root}data`,`${root}dist/data`,{recursive:true});
 await mkdir(`${root}dist/docs`);
 await copyFile(`${root}docs/CONTENT.md`,`${root}dist/docs/CONTENT.md`);
 await copyFile(`${root}README.md`,`${root}dist/README.md`);

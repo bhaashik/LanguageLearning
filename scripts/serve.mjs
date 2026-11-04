@@ -3,6 +3,7 @@ import {readFile, stat} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {handleSpeech,speechConfig} from './speech.mjs';
+import {handleOCR} from './ocr.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const port=Number(process.env.PORT || 4173);
@@ -11,6 +12,7 @@ http.createServer(async(req,res)=>{
   try {
     const url=new URL(req.url,`http://${req.headers.host||'localhost'}`);
     if(await handleSpeech(req,res,url))return;
+    if(await handleOCR(req,res,url))return;
     let name=decodeURIComponent(url.pathname);
     if(name.split('/').some(p=>p.startsWith('.'))) {res.writeHead(404).end();return;}
     const target=path.resolve(root,`.${name}`);
@@ -20,4 +22,4 @@ http.createServer(async(req,res)=>{
     const body=await readFile(file);
     res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache'}).end(body);
   } catch {res.writeHead(404).end('Not found');}
-}).listen(port,speechConfig().ready?'127.0.0.1':'0.0.0.0',()=>console.log(`Bhaasa available on port ${port}. Press Ctrl+C to stop.`));
+}).listen(port,speechConfig().ready||process.env.BHAASA_OCR_API_KEY?'127.0.0.1':'0.0.0.0',()=>console.log(`Bhaasa available on port ${port}. Press Ctrl+C to stop.`));

@@ -128,6 +128,7 @@ with sync_playwright() as p:
         expect(page.locator('.letter-tile')).to_have_count(count)
     navigate(page, 'item/vel-0')
     page.evaluate('document.fonts.ready')
+    expect(page.locator('#trace-plan')).to_contain_text('Suggested guide:')
     canvas = page.locator('#writing-canvas')
     before = canvas.evaluate('(el) => el.toDataURL()')
     box = canvas.bounding_box()

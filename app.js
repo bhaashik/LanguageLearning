@@ -1,10 +1,11 @@
 import {vowels, consonants, signs, chillus, conjuncts, scriptItems, words, phrases, grammarItems, phoneticsItems, soundTopics, sections, lessons, allItems, byId} from './content.js';
-import {STORAGE_KEY, LEGACY_STORAGE_KEY, emptyProgress, validateProgress, recordAnswer, dueItems, shuffle, answerFor, choicesFor, finishLesson, ensureSession, startSession, sectionScores} from './learning.js';
+import {STORAGE_KEY, LEGACY_STORAGE_KEY, emptyProgress, validateProgress, recordAnswer, dueItems, shuffle, answerFor, choicesFor, finishLesson, ensureSession, startSession, sectionScores, updateWriting,recordTrace,recordHandwritingRecognition} from './learning.js';
 import {glossLegend} from './linguistics.js';
 import {AudioLibrary} from './audio.js';
 import {audioPage} from './audio-ui.js';
 import {validateEndpoint} from './audio-store.js';
 import {defaultOpenAIVoice} from './speech-presets.js';
+import {tracingPanel,createTracingPad} from './tracing-pad.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -158,7 +159,7 @@ function itemPage(id) {
   const isWord=!['letter','sign','chillu','conjunct'].includes(item.kind);
   return `<a class="back-link" href="#${isWord?'words':'script'}">${icon('back')} ${isWord?'Words & phrases':'Writing system'}</a>${pageHeading(item.group.toUpperCase(),isWord?'Look. Read. Remember.':'Get a feel for the letter.','Take your time. Learning a new shape starts with noticing it.')}
   <div class="item-layout"><section class="detail-card">${ml(item.ml,item.kind==='phrase'?'phrase':'')}<div class="study-roman">${item.roman}</div>${isWord?`<h2>${item.meaning}</h2>`:`<p class="ipa">/${esc(item.ipa)}/</p>`}<p>${item.note||'Look at the curves and the relative size of each part. The Roman spelling helps you recognize the written form.'}</p>${playButton(item)}<a class="text-link audio-link" href="#audio/${item.id}">Choose a voice, generate, or record</a><p id="voice-note" class="audio-note">${voiceNote()}</p>${linguistic(item,true)}${exampleFor(item)}</section>
-  <section class="writing-card"><div class="card-topline"><h2>A space to write</h2><span class="small-label">FINGER, PEN, OR MOUSE</span></div><p>Try the shape, then try it from memory.</p><div class="canvas-wrap"><canvas id="writing-canvas" width="800" height="400" aria-label="Freehand writing pad. The reference text is ${esc(item.ml)}. Use a finger, pen, or mouse."></canvas></div><div class="writing-controls"><label class="checkbox"><input id="show-guide" type="checkbox" checked> Show guide</label><div><button class="button secondary small" data-action="undo-stroke">Undo</button><button class="button secondary small" data-action="clear-canvas">Clear</button></div></div><p class="section-note">Freehand practice, without automatic grading or stroke-order guidance. Compare your writing with the reference shape.</p></section></div>`;
+  ${tracingPanel(item,!isWord,progress.writing?.[item.id])}</div>`;
 }
 function reviewPage() {
   if(quiz)return quizPage();
@@ -198,7 +199,7 @@ function progressPage() {
   const done=lessons.filter(l=>completed(l.id)).length;
   return `${pageHeading('YOUR JOURNEY, AT YOUR PACE','Small steps add up.','Your progress is saved in this browser. No account, subscription, or server needed.')}
   <div class="stats-grid">${[[done,'lessons completed'],[entries.length,'items practised'],[answers?`${Math.round(correct/answers*100)}%`:'—','answers correct'],[Object.keys(progress.activity).length,'learning days']].map(([n,label])=>`<section class="stat-card"><strong>${n}</strong><span>${label}</span></section>`).join('')}</div>
-  ${scoresPanel()}<div class="section-title"><h2>Your lesson notebook</h2><span>80% to complete a lesson</span></div><div class="score-list">${lessons.map(l=>`<a href="#lesson/${l.id}" class="score-row"><span>${l.title}</span><div class="progress-track"><span style="width:${(progress.lessons[l.id]||0)*100}%"></span></div><strong>${l.id in progress.lessons?`${Math.round(progress.lessons[l.id]*100)}%`:'Not started'}</strong>${completed(l.id)?icon('check'):icon('arrow')}</a>`).join('')}</div>
+  ${scoresPanel()}${writingSummary()}<div class="section-title"><h2>Your lesson notebook</h2><span>80% to complete a lesson</span></div><div class="score-list">${lessons.map(l=>`<a href="#lesson/${l.id}" class="score-row"><span>${l.title}</span><div class="progress-track"><span style="width:${(progress.lessons[l.id]||0)*100}%"></span></div><strong>${l.id in progress.lessons?`${Math.round(progress.lessons[l.id]*100)}%`:'Not started'}</strong>${completed(l.id)?icon('check'):icon('arrow')}</a>`).join('')}</div>
   <section class="backup-card"><div><h2>Keep your notebook safe.</h2><p>Clearing browser data removes your progress. Export a small backup to keep it, or move it to another device.</p>${!storageOK?'<p class="notice">Browser storage is unavailable. Export before closing this page.</p>':''}</div><div class="button-row"><button class="button primary" data-action="export">${icon('download')} Export progress</button><label class="button secondary file-button">Import backup<input type="file" id="import-progress" accept="application/json,.json"></label><button class="text-button danger" data-action="reset">Reset progress</button></div></section>`;
 }
 function aboutPage() {
@@ -256,29 +257,18 @@ async function speak(id) {
 
 let canvasActions={};
 function setupCanvas(item) {
-  const canvas=$('#writing-canvas');const ctx=canvas.getContext('2d');
-  const strokes=[];let current=null;let alive=true;
-  const point=e=>{const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*800,y:(e.clientY-r.top)/r.height*400};};
-  function draw() {
-    ctx.clearRect(0,0,800,400);ctx.fillStyle='#fcfbf7';ctx.fillRect(0,0,800,400);
-    ctx.strokeStyle='#e4e5da';ctx.lineWidth=1;ctx.setLineDash([7,9]);
-    for(const y of [100,200,300]){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(800,y);ctx.stroke();}
-    ctx.setLineDash([]);
-    if($('#show-guide')?.checked){ctx.fillStyle='#dedfd3';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`${item.ml.length>12?48:item.ml.length>5?90:200}px Malayalam`;ctx.fillText(item.ml,400,205,740);}
-    ctx.strokeStyle='#214d3c';ctx.fillStyle='#214d3c';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';
-    for(const stroke of [...strokes,...(current?[current]:[])]){
-      if(stroke.length===1){ctx.beginPath();ctx.arc(stroke[0].x,stroke[0].y,2.5,0,Math.PI*2);ctx.fill();continue;}
-      ctx.beginPath();stroke.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
-    }
-  }
-  canvas.onpointerdown=e=>{if(e.button!==0)return;canvas.setPointerCapture(e.pointerId);current=[point(e)];draw();};
-  canvas.onpointermove=e=>{if(current){current.push(point(e));draw();}};
-  const end=()=>{if(current){strokes.push(current);current=null;draw();}};
-  canvas.onpointerup=end;canvas.onpointercancel=end;
-  $('#show-guide').onchange=draw;
-  canvasActions={undo:()=>{strokes.pop();draw();},clear:()=>{strokes.length=0;current=null;draw();}};
-  draw();document.fonts.load('200px Malayalam').then(()=>{if(alive)draw();});
-  traceCleanup=()=>{alive=false;canvasActions={};};
+  const history=()=>{const w=progress.writing?.[item.id];const el=$('#writing-history');if(el&&w)el.textContent=`${w.attempts} tracing checks · best fit ${Math.round(w.bestFit*100)}%. OCR: ${w.ocr.correct}/${w.ocr.judged} readable results matched; ${w.ocr.requests-w.ocr.judged} uncertain.`;};
+  const pad=createTracingPad({item,script:scriptItems.some(i=>i.id===item.id),saved:progress.writing?.[item.id],notify:toast,
+    onDraft:(draft,draftId)=>{progress=updateWriting(progress,item.id,{draft,draftId});save();},
+    onCheck:result=>{progress=recordTrace(progress,item.id,result);save();history();},
+    onRecognition:result=>{progress=recordHandwritingRecognition(progress,item.id,result);save();history();},
+    onGuide:customGuide=>{progress=updateWriting(progress,item.id,{customGuide});save();}
+  });
+  canvasActions=pad;traceCleanup=()=>{pad.cleanup();canvasActions={};};history();
+}
+function writingSummary(){
+  const entries=Object.entries(progress.writing||{}).filter(([,w])=>w.attempts),checks=entries.reduce((n,[,w])=>n+w.attempts,0),session=progress.session?.writing;
+  return `<section class="writing-summary panel"><div class="section-title"><h2>Drawing practice</h2><span>Separate from recognition quizzes</span></div><p>This session: ${session?.checks||0} tracing checks${session?.checks?` · average fit ${Math.round(session.totalFit/session.checks*100)}%`:''}. Overall: ${checks} checks across ${entries.length} symbols. OCR has a separate result; an uncertain reading is not counted as a wrong letter.</p><div class="writing-records">${entries.map(([id,w])=>`<a href="#item/${id}">${ml(byId[id].ml)}<span>Best fit ${Math.round(w.bestFit*100)}% · ${w.attempts} checks</span><div class="score-meter ${w.bestFit>=.8?'good':w.bestFit>=.5?'fair':'needs-practice'}" role="img" aria-label="Best tracing fit ${Math.round(w.bestFit*100)} percent"><i style="width:${w.bestFit*100}%"></i></div><small>OCR ${w.ocr.correct}/${w.ocr.judged} readable results matched</small></a>`).join('')}</div></section>`;
 }
 
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}

@@ -19,14 +19,53 @@ The development server uses port 4173 (`PORT` overrides it). Any static HTTP ser
 - Script examples use actual words for common symbols. Three rare learned vocalic vowels and rare chillu ൿ have explicit teaching examples/alternative-spelling notes rather than invented everyday words.
 - 66 everyday words, 10 phrases, additional sound-example vocabulary, six grammar patterns, and a six-part **Sounds of Malayalam (Phonetics & Phonology)** section.
 - Roman spelling, broad IPA, extended Devanagari, and simplified morpheme glosses are available in expandable details on learning cards, script examples, grammar examples, recap, and answer feedback. Letters/syllables are labelled as sound units, not morphemes. Joined word forms can differ from their segmented analysis.
-- Freehand writing with guide/undo/clear; this is not handwriting grading or stroke-order instruction.
+- Curved tracing for all 84 script entries, with numbered starts, direction arrows, an animated demonstration, guide hiding, undo/clear, and pen/finger/mouse input. Offline checks cover guide fit, separate marks, smoothness, pen lifts, and following the suggested path. Recognition is a separate optional OpenAI OCR check; generated practice paths are not teacher-verified Malayalam stroke order.
 - Recognition, grammar, and sound-pattern exercises. Every exercise ends with its complete answer key, including the learner’s answers and explanatory detail.
 - Separate colored accuracy bars for writing-system recognition, phonetics, words, phrases, and grammar, both **this session** and **overall**. Scores measure answered questions, not proficiency or freehand writing quality.
 - Automatic return to the last page/card or unfinished exercise when opening the base address, plus a brief recap. An explicit link to any section always works. Already answered quiz questions do not score twice after reload.
 - Sessions survive reloads, restart after 30 minutes without interaction, and can be restarted explicitly without erasing overall results.
+- Drawing drafts, tracing results, and OCR outcomes are saved separately from reading quizzes and included in progress backups. Reopening an unchanged drawing does not add another tracing score or silently repeat a paid OCR call.
 - Progress JSON backup/import, including migration from the original Aksharam progress format. Progress is local to this origin/browser, not synchronized across devices.
 
 Content details and limitations are in [docs/CONTENT.md](docs/CONTENT.md). Word/sentence IPA is a broad **spelling-based approximation**, not a verified narrow transcription of natural speech. Extended Devanagari is comparative script correspondence, not ordinary Hindi pronunciation. A Malayalam teacher’s review and native-speaker recordings are still needed for a finished curriculum.
+
+## Curved tracing and handwriting recognition
+
+Open **Writing system**, choose a symbol, and use **Trace. Flow. Remember.**
+
+1. **Watch the strokes** animates the guide; numbered dots and arrows show its suggested order/direction.
+2. Trace the curves with a mouse, pen, or finger. The pad smooths the visible ink while retaining separate pen-down strokes.
+3. **Check my tracing** runs offline. It reports guide fit, coverage of each separate part, smoothness, pen-lift count, and suggested path following. Blank taps, missing vowel signs, off-path scribbles, and excessive retracing do not receive a good tracing result.
+4. Hide **Show guide** and try the shape from memory. A shape can fit while using a different stroke order: those results are reported separately rather than declaring every alternate path a wrong letter.
+5. **Check with OpenAI OCR (online)** sends a cropped black-on-white image of only your ink to the gateway. Neither the printed guide, demonstration, markers, expected symbol, nor its ID is sent to the model. The gateway transcribes first; the browser then compares the reading with the target. Unreadable/uncertain results are separate from incorrect readings. Recognition can still be wrong and is not handwriting certification.
+
+The bundled guides are centerlines derived from **Noto Sans Malayalam Regular**: 65 have one suggested stroke, 16 have two, and three have three because marks are disconnected. A connected route can retrace a short segment. These are font-based practice suggestions, not a researched account of conventional Malayalam handwriting. **A Malayalam teacher should verify or replace them before they are described as correct stroke order.** Detached signs are kept separate rather than forcing every symbol into one or two strokes.
+
+Under **Teacher guides, OCR connection & exports**, export your strokes as Bhaasa JSON, or import an instructor's stroke-guide JSON for the same symbol. Imported paths are labelled custom guides and can be replaced with **Use font guide**. Export/import does not establish that a guide is linguistically correct. Custom guides and current drawing drafts are kept in progress backups.
+
+### Run OCR on your computer
+
+The OCR gateway is part of the same local server; no new runtime dependency is needed. It uses the existing `BHAASA_TTS_API_KEY`, or prefers `BHAASA_OCR_API_KEY` if supplied separately. Its default vision model is `gpt-4.1-mini`; `BHAASA_OCR_MODEL` can select another OpenAI image-input model supporting structured JSON output. The API key needs Responses API/model access and billing, not just speech permission.
+
+After `git pull`, make a local file named exactly `.env.local` (already ignored by Git):
+
+```dotenv
+BHAASA_TTS_API_KEY=YOUR_OPENAI_API_KEY
+BHAASA_TTS_PROVIDER=openai
+BHAASA_TTS_MODELS=gpt-realtime-2.1-mini
+BHAASA_TTS_VOICE=marin
+BHAASA_OCR_MODEL=gpt-4.1-mini
+```
+
+Fill the key locally; do not share or commit the file. With Node 24, start/restart using:
+
+```sh
+node --env-file=.env.local scripts/serve.mjs
+```
+
+Open `http://127.0.0.1:4173` consistently in the same browser. In a symbol's tracing pad, draw first and click the OCR button. `GET /api/ocr` reports configuration without a paid request; `POST /api/ocr` accepts only a PNG image up to 1024×1024 and performs the explicit recognition request. Cross-origin use requires an exact `BHAASA_OCR_ALLOWED_ORIGIN` (or the existing `BHAASA_TTS_ALLOWED_ORIGIN`). Neither API keys nor drawings enter the public static build. Drawings are transmitted to OpenAI only on the OCR button click; responses are requested with `store:false`.
+
+Offline tracing works with no key or gateway. OCR requires the running local server and internet. A public GitHub Pages deployment needs a separately connected OCR gateway, configured in the tracing pad's advanced settings. Cloud credentials remain unverified in this development workspace; live OCR accuracy has not been tested.
 
 ## Voices and recordings
 
@@ -113,8 +152,20 @@ npm test
 # With the development/static server running and Python Playwright + Chromium installed:
 python3 tests/browser.py
 python3 tests/features.py
+python3 tests/tracing.py
 ```
 
-Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, and microphone capture using Chromium’s test microphone. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.
+Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, microphone capture using Chromium’s test microphone, and native touch tracing. The tracing suite also needs Pillow for inspecting the ink-only OCR image. OCR uses fixture responses in tests; no paid recognition call is made. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.
 
 Keep stable content IDs when editing the curriculum. The Noto Malayalam and Devanagari fonts use the SIL Open Font License; attribution is in `assets/FONT-LICENSE.txt`.
+
+### Regenerating tracing guides (development only)
+
+The application ships ready-made `data/tracing-guides.json`; Python is not needed to run Bhaasa. To regenerate it with the bundled font, start the local server, then use Python Playwright/Chromium, Pillow, and NumPy:
+
+```sh
+python3 scripts/render-tracing.py /tmp/bhaasa-guide-refs
+python3 scripts/generate-tracing.py /tmp/bhaasa-guide-refs data/tracing-guides.json
+```
+
+The generator uses thinning and graph traversal with short retraces, then simplifies the centerlines. It does not learn or validate handwriting stroke order. Review any regenerated geometry and teacher-guide conventions separately from algorithm tests.

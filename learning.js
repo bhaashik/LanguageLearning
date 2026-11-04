@@ -1,7 +1,12 @@
 export const STORAGE_KEY = 'bhaasa.progress.v2';
 export const LEGACY_STORAGE_KEY = 'aksharam.progress.v1';
 export const SESSION_GAP=30*60*1000;
-export const emptyProgress = () => ({version:2, items:{}, lessons:{}, activity:{},session:null,ui:null,recent:[]});
+export const emptyProgress = () => ({version:2, items:{}, lessons:{}, activity:{},session:null,ui:null,recent:[],writing:{}});
+const emptyWriting=()=>({attempts:0,bestFit:0,last:null,draft:[],draftId:null,customGuide:null,ocr:{requests:0,judged:0,correct:0,lastText:null,lastMatched:null,lastDrawingId:null}});
+const writingSession=()=>({checks:0,totalFit:0,ocrRequests:0,ocrJudged:0,ocrCorrect:0});
+const unit=n=>Number.isFinite(n)&&n>=0&&n<=1;
+const counter=n=>Number.isSafeInteger(n)&&n>=0;
+const validDraft=paths=>Array.isArray(paths)&&paths.length<=80&&paths.reduce((n,p)=>n+(Array.isArray(p)?p.length:20000),0)<=12000&&paths.every(p=>Array.isArray(p)&&p.length&&p.every(q=>q&&Number.isFinite(q.x)&&q.x>=0&&q.x<=800&&Number.isFinite(q.y)&&q.y>=0&&q.y<=600));
 
 export function validateProgress(value, validIds, lessonIds) {
   if (!value || ![1,2].includes(value.version) || !value.items || typeof value.items !== 'object' || !value.lessons || typeof value.lessons !== 'object' || !value.activity || typeof value.activity !== 'object') throw new Error('Not a Bhaasa progress file.');
@@ -27,14 +32,27 @@ export function validateProgress(value, validIds, lessonIds) {
         if(count&&Number.isSafeInteger(count.total)&&Number.isSafeInteger(count.correct)&&count.total>=0&&count.correct>=0&&count.correct<=count.total)counters[id]={total:count.total,correct:count.correct};
       }
       clean.session={startedAt:s.startedAt,lastAt:s.lastAt,sections:counters};
+      const w=s.writing;clean.session.writing=w&&counter(w.checks)&&Number.isFinite(w.totalFit)&&w.totalFit>=0&&w.totalFit<=w.checks&&counter(w.ocrRequests)&&counter(w.ocrJudged)&&counter(w.ocrCorrect)&&w.ocrCorrect<=w.ocrJudged&&w.ocrJudged<=w.ocrRequests?{checks:w.checks,totalFit:w.totalFit,ocrRequests:w.ocrRequests,ocrJudged:w.ocrJudged,ocrCorrect:w.ocrCorrect}:writingSession();
     }
     if(value.ui&&typeof value.ui==='object'&&typeof value.ui.route==='string'&&/^[a-z]+(?:\/[a-z0-9-]+)?$/.test(value.ui.route)&&value.ui.route.length<100){
       clean.ui={route:value.ui.route,studyIndex:Number.isInteger(value.ui.studyIndex)?Math.max(0,Math.min(value.ui.studyIndex,100)):0,activeScript:String(value.ui.activeScript||'Vowels').slice(0,30),wordGroup:String(value.ui.wordGroup||'All words').slice(0,40),search:String(value.ui.search||'').slice(0,200),quiz:value.ui.quiz&&typeof value.ui.quiz==='object'?value.ui.quiz:null};
     }
+    for(const [id,w] of Object.entries(value.writing||{})){
+      if(!validIds.has(id)||!w||!counter(w.attempts)||!unit(w.bestFit))continue;
+      const cleanItem=emptyWriting();cleanItem.attempts=w.attempts;cleanItem.bestFit=w.bestFit;
+      if(typeof w.draftId==='string'&&w.draftId.length<80)cleanItem.draftId=w.draftId;
+      if(validDraft(w.draft))cleanItem.draft=w.draft.map(p=>p.map(({x,y})=>({x,y})));
+      if(w.last&&unit(w.last.fit)&&unit(w.last.smoothness)&&counter(w.last.strokeCount))cleanItem.last={fit:w.last.fit,smoothness:w.last.smoothness,strokeCount:w.last.strokeCount,passed:w.last.passed===true,drawingId:typeof w.last.drawingId==='string'?w.last.drawingId.slice(0,80):null};
+      const g=w.customGuide;
+      if(g&&typeof g.ml==='string'&&Array.isArray(g.paths)&&g.paths.length>0&&g.paths.length<=12&&g.paths.flat().length<=5000&&g.paths.every(p=>Array.isArray(p)&&p.length>1&&p.every(q=>Array.isArray(q)&&q.length===2&&q.every(n=>Number.isFinite(n)&&n>=0&&n<=2000))))cleanItem.customGuide={ml:g.ml,paths:g.paths,source:'imported practice guide',reviewed:false};
+      const o=w.ocr;
+      if(o&&counter(o.requests)&&counter(o.judged)&&counter(o.correct)&&o.correct<=o.judged&&o.judged<=o.requests)cleanItem.ocr={requests:o.requests,judged:o.judged,correct:o.correct,lastText:typeof o.lastText==='string'?o.lastText.slice(0,80):null,lastMatched:typeof o.lastMatched==='boolean'?o.lastMatched:null,lastDrawingId:typeof o.lastDrawingId==='string'?o.lastDrawingId.slice(0,80):null};
+      clean.writing[id]=cleanItem;
+    }
   }
   return clean;
 }
-export function startSession(progress,now=Date.now()) {return {...progress,session:{startedAt:now,lastAt:now,sections:{}}};}
+export function startSession(progress,now=Date.now()) {return {...progress,session:{startedAt:now,lastAt:now,sections:{},writing:writingSession()}};}
 export function ensureSession(progress,now=Date.now()) {return !progress.session||now-progress.session.lastAt>SESSION_GAP?startSession(progress,now):progress;}
 export function sectionFromId(id){return id.startsWith('sound-')?'phonetics':id.startsWith('grammar-')?'grammar':id.startsWith('phrase-')?'phrases':/^(v|vel|pal|ret|den|lab|oth|sign|ch|cj)-/.test(id)?'script':'words';}
 export function sectionScores(progress,lookup) {
@@ -45,6 +63,20 @@ export function sectionScores(progress,lookup) {
     result[section]={total:old.total+item.attempts,correct:old.correct+item.correct};
   }
   return result;
+}
+export function updateWriting(progress,id,patch){return {...progress,writing:{...(progress.writing||{}),[id]:{...emptyWriting(),...progress.writing?.[id],...patch}}};}
+export function recordTrace(progress,id,result,now=Date.now()){
+  if(!result.assessable||!unit(result.fit)||!unit(result.smoothness)||!counter(result.strokeCount))return progress;
+  progress=ensureSession(progress,now);const old=progress.writing?.[id]||emptyWriting(),s=progress.session.writing||writingSession();
+  if(result.drawingId&&old.last?.drawingId===result.drawingId)return progress;
+  progress=updateWriting(progress,id,{attempts:old.attempts+1,bestFit:Math.max(old.bestFit,result.fit),last:{fit:result.fit,smoothness:result.smoothness,strokeCount:result.strokeCount,passed:result.passed===true,drawingId:result.drawingId||null}});
+  return {...progress,session:{...progress.session,lastAt:now,writing:{...s,checks:s.checks+1,totalFit:s.totalFit+result.fit}}};
+}
+export function recordHandwritingRecognition(progress,id,{text,matched,drawingId},now=Date.now()){
+  progress=ensureSession(progress,now);const old=progress.writing?.[id]||emptyWriting(),o=old.ocr,s=progress.session.writing||writingSession(),judged=typeof matched==='boolean';
+  if(drawingId&&o.lastDrawingId===drawingId)return progress;
+  progress=updateWriting(progress,id,{ocr:{requests:o.requests+1,judged:o.judged+Number(judged),correct:o.correct+Number(matched===true),lastText:typeof text==='string'?text.slice(0,80):null,lastMatched:judged?matched:null,lastDrawingId:drawingId||null}});
+  return {...progress,session:{...progress.session,lastAt:now,writing:{...s,ocrRequests:s.ocrRequests+1,ocrJudged:s.ocrJudged+Number(judged),ocrCorrect:s.ocrCorrect+Number(matched===true)}}};
 }
 
 export function localDay(now = Date.now()) {
