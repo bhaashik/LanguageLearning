@@ -19,7 +19,7 @@ The development server uses port 4173 (`PORT` overrides it). Any static HTTP ser
 - Script examples use actual words for common symbols. Three rare learned vocalic vowels and rare chillu ൿ have explicit teaching examples/alternative-spelling notes rather than invented everyday words.
 - 66 everyday words, 10 phrases, additional sound-example vocabulary, six grammar patterns, and a six-part **Sounds of Malayalam (Phonetics & Phonology)** section.
 - Roman spelling, broad IPA, extended Devanagari, and simplified morpheme glosses are available in expandable details on learning cards, script examples, grammar examples, recap, and answer feedback. Letters/syllables are labelled as sound units, not morphemes. Joined word forms can differ from their segmented analysis.
-- Curved tracing for all 84 script entries, with numbered starts, direction arrows, an animated demonstration, guide hiding, undo/clear, and pen/finger/mouse input. Offline checks cover guide fit, separate marks, smoothness, pen lifts, and following the suggested path. Recognition is a separate optional OpenAI OCR check; generated practice paths are not teacher-verified Malayalam stroke order.
+- Curved tracing for all 84 script entries, with numbered starts, direction arrows, an animated demonstration, guide hiding, undo/clear, and pen/finger/mouse input. Offline checks cover guide fit, separate marks, smoothness, pen lifts, and following the suggested path. Optional handwriting recognition supports OpenAI, Gemini, Claude, local compatible vision models, and custom OCR endpoints; generated practice paths are not teacher-verified Malayalam stroke order.
 - Recognition, grammar, and sound-pattern exercises. Every exercise ends with its complete answer key, including the learner’s answers and explanatory detail.
 - Separate colored accuracy bars for writing-system recognition, phonetics, words, phrases, and grammar, both **this session** and **overall**. Scores measure answered questions, not proficiency or freehand writing quality.
 - Automatic return to the last page/card or unfinished exercise when opening the base address, plus a brief recap. An explicit link to any section always works. Already answered quiz questions do not score twice after reload.
@@ -37,7 +37,11 @@ Open **Writing system**, choose a symbol, and use **Trace. Flow. Remember.**
 2. Trace the curves with a mouse, pen, or finger. The pad smooths the visible ink while retaining separate pen-down strokes.
 3. **Check my tracing** runs offline. It reports guide fit, coverage of each separate part, smoothness, pen-lift count, and suggested path following. Blank taps, missing vowel signs, off-path scribbles, and excessive retracing do not receive a good tracing result.
 4. Hide **Show guide** and try the shape from memory. A shape can fit while using a different stroke order: those results are reported separately rather than declaring every alternate path a wrong letter.
-5. **Check with OpenAI OCR (online)** sends a cropped black-on-white image of only your ink to the gateway. Neither the printed guide, demonstration, markers, expected symbol, nor its ID is sent to the model. The gateway transcribes first; the browser then compares the reading with the target. Unreadable/uncertain results are separate from incorrect readings. Recognition can still be wrong and is not handwriting certification.
+5. Choose a **Handwriting recognition** provider and click **Recognize my handwriting**. This sends a cropped black-on-white image of only your ink to the selected gateway. Neither the printed guide, demonstration, markers, expected symbol, nor its ID is sent to the model. The gateway transcribes first; the browser then compares the reading with the target. Unreadable/uncertain results are separate from incorrect readings. Recognition can still be wrong and is not handwriting certification.
+
+The provider menu offers **OpenAI**, **Google Gemini**, **Anthropic Claude**, **Local / OpenAI-compatible vision model**, **Custom OCR endpoint**, and **Off · tracing only**. OCR selection is independent of speech voices. Each provider remembers its model and endpoint in this browser. Changing providers keeps the drawing and tracing result. Up to 20 source-tagged readings per symbol are retained in progress backups; an unchanged drawing with the same provider, endpoint, and model reuses its saved reading. To regenerate it, check **Request a fresh reading** in the connection settings. This is also needed when changing the server's default model without changing the browser settings. Failed requests do not add a judged result or trigger a fallback to another provider.
+
+Touchscreens work through Pointer Events: draw with a finger or stylus on the pad, and scroll outside it. Continuous native touch input is covered by Chromium browser tests. Device-specific stylus features and palm rejection depend on the browser/device.
 
 The bundled guides are centerlines derived from **Noto Sans Malayalam Regular**: 65 have one suggested stroke, 16 have two, and three have three because marks are disconnected. A connected route can retrace a short segment. These are font-based practice suggestions, not a researched account of conventional Malayalam handwriting. **A Malayalam teacher should verify or replace them before they are described as correct stroke order.** Detached signs are kept separate rather than forcing every symbol into one or two strokes.
 
@@ -45,7 +49,7 @@ Under **Teacher guides, OCR connection & exports**, export your strokes as Bhaas
 
 ### Run OCR on your computer
 
-The OCR gateway is part of the same local server; no new runtime dependency is needed. It uses the existing `BHAASA_TTS_API_KEY`, or prefers `BHAASA_OCR_API_KEY` if supplied separately. Its default vision model is `gpt-4.1-mini`; `BHAASA_OCR_MODEL` can select another OpenAI image-input model supporting structured JSON output. The API key needs Responses API/model access and billing, not just speech permission.
+The OCR gateway is part of the same local server; no new runtime dependency is needed. Configure one or more providers in `.env.local`. Keys stay on that server; do not enter API keys into the browser's endpoint field. Every cloud provider requires its own API access and billing. A ChatGPT, Gemini, or Claude chat subscription does not establish API access.
 
 After `git pull`, make a local file named exactly `.env.local` (already ignored by Git):
 
@@ -54,7 +58,7 @@ BHAASA_TTS_API_KEY=YOUR_OPENAI_API_KEY
 BHAASA_TTS_PROVIDER=openai
 BHAASA_TTS_MODELS=gpt-realtime-2.1-mini
 BHAASA_TTS_VOICE=marin
-BHAASA_OCR_MODEL=gpt-4.1-mini
+BHAASA_OCR_OPENAI_MODEL=gpt-4.1-mini
 ```
 
 Fill the key locally; do not share or commit the file. With Node 24, start/restart using:
@@ -63,9 +67,32 @@ Fill the key locally; do not share or commit the file. With Node 24, start/resta
 node --env-file=.env.local scripts/serve.mjs
 ```
 
-Open `http://127.0.0.1:4173` consistently in the same browser. In a symbol's tracing pad, draw first and click the OCR button. `GET /api/ocr` reports configuration without a paid request; `POST /api/ocr` accepts only a PNG image up to 1024×1024 and performs the explicit recognition request. Cross-origin use requires an exact `BHAASA_OCR_ALLOWED_ORIGIN` (or the existing `BHAASA_TTS_ALLOWED_ORIGIN`). Neither API keys nor drawings enter the public static build. Drawings are transmitted to OpenAI only on the OCR button click; responses are requested with `store:false`.
+Open `http://127.0.0.1:4173` consistently in the same browser. In a symbol's tracing pad, select your provider, draw, and click the recognition button. Expand **Teacher guides, OCR connection & exports → Check OCR connection** to check configuration and discover allowed model names without a paid request. This checks the gateway's settings, not live account authorization.
 
-Offline tracing works with no key or gateway. OCR requires the running local server and internet. A public GitHub Pages deployment needs a separately connected OCR gateway, configured in the tracing pad's advanced settings. Cloud credentials remain unverified in this development workspace; live OCR accuracy has not been tested.
+| Provider selection | Local server variables |
+| --- | --- |
+| OpenAI | `BHAASA_OCR_OPENAI_API_KEY`; optional `BHAASA_OCR_OPENAI_MODEL` (default `gpt-4.1-mini`) |
+| Google Gemini | `BHAASA_OCR_GEMINI_API_KEY` and `BHAASA_OCR_GEMINI_MODEL` |
+| Anthropic Claude | `BHAASA_OCR_ANTHROPIC_API_KEY` and `BHAASA_OCR_ANTHROPIC_MODEL` |
+| Local / OpenAI-compatible | `BHAASA_OCR_COMPATIBLE_URL` (full chat-completions URL), `BHAASA_OCR_COMPATIBLE_MODEL`, and optional `BHAASA_OCR_COMPATIBLE_API_KEY` |
+| Custom through the server | `BHAASA_OCR_CUSTOM_URL` and optional `BHAASA_OCR_CUSTOM_API_KEY` |
+
+Supply the exact image-capable model ID available to your account or local installation. Gemini and Claude model IDs are deliberately not hard-coded. To allow several models, set the matching `BHAASA_OCR_<PROVIDER>_MODELS` to a comma-separated list; the singular `_MODEL` chooses the default if it is in that list, otherwise the first listed model is used. The model field in the app must match this server allowlist. For example, add these lines to enable a local vision model already installed in Ollama:
+
+```dotenv
+BHAASA_OCR_COMPATIBLE_URL=http://127.0.0.1:11434/v1/chat/completions
+BHAASA_OCR_COMPATIBLE_MODEL=YOUR_INSTALLED_VISION_MODEL_ID
+```
+
+The gateway does not install models. Ollama/vLLM or another compatible service must support image input and follow the JSON transcription instruction. Malayalam handwriting quality depends on the model; a text-only model will not work.
+
+Existing OpenAI settings remain supported: `BHAASA_OCR_API_KEY` and `BHAASA_OCR_MODEL`. OpenAI can also reuse `BHAASA_TTS_API_KEY` when the speech provider is OpenAI (including when unset). A provider-specific OCR key takes precedence, and another provider never borrows that key. `BHAASA_OCR_PROVIDER` sets the gateway default for legacy image-only clients; named provider choices in the app always request their selected provider explicitly.
+
+`GET /api/ocr` reports configured providers/models without exposing credentials or private upstream URLs. `POST /api/ocr` accepts `{image, provider?, model?}`, with a PNG data URL up to 1024×1024. Answer/target fields are rejected. Cross-origin use requires an exact `BHAASA_OCR_ALLOWED_ORIGIN` (or the existing `BHAASA_TTS_ALLOWED_ORIGIN`). Neither API keys nor drawings enter the public static build. Drawings are transmitted only on an explicit recognition request. OpenAI Responses requests use `store:false`; other providers apply their own data-handling policies.
+
+For any other OCR engine, choose **Custom OCR endpoint** and enter its URL. The browser posts only `{image}`; the endpoint must return `{text: "ക", legible: true}` or `{text: null, legible: false}`, optionally with `provider` and `model` labels. It can wrap any Malayalam OCR engine. If it requires authentication, configure its URL/key on the local Bhaasa server and point the browser's custom endpoint at `/api/ocr`, with `BHAASA_OCR_PROVIDER=custom` on that server. Direct custom endpoints must allow the app's origin via CORS. Endpoints must use HTTPS or HTTP loopback, with no credentials, query, or fragment in the URL.
+
+Offline tracing works with no key or gateway. Cloud OCR requires internet; a local OCR service can work offline once its model is installed. A public GitHub Pages deployment needs a separately connected gateway configured in the tracing pad's connection settings. Provider adapters are tested with fixtures; live account access and Malayalam OCR accuracy have not been verified.
 
 ## Voices and recordings
 
@@ -153,9 +180,10 @@ npm test
 python3 tests/browser.py
 python3 tests/features.py
 python3 tests/tracing.py
+python3 tests/ocr-providers.py
 ```
 
-Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, microphone capture using Chromium’s test microphone, and native touch tracing. The tracing suite also needs Pillow for inspecting the ink-only OCR image. OCR uses fixture responses in tests; no paid recognition call is made. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.
+Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, microphone capture using Chromium’s test microphone, native touch tracing, and OCR provider switching/caching/cancellation. The tracing suite also needs Pillow for inspecting the ink-only OCR image. OCR uses fixture responses in tests; no paid recognition call is made. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.
 
 Keep stable content IDs when editing the curriculum. The Noto Malayalam and Devanagari fonts use the SIL Open Font License; attribution is in `assets/FONT-LICENSE.txt`.
 

@@ -2,10 +2,12 @@ export const STORAGE_KEY = 'bhaasa.progress.v2';
 export const LEGACY_STORAGE_KEY = 'aksharam.progress.v1';
 export const SESSION_GAP=30*60*1000;
 export const emptyProgress = () => ({version:2, items:{}, lessons:{}, activity:{},session:null,ui:null,recent:[],writing:{}});
-const emptyWriting=()=>({attempts:0,bestFit:0,last:null,draft:[],draftId:null,customGuide:null,ocr:{requests:0,judged:0,correct:0,lastText:null,lastMatched:null,lastDrawingId:null}});
+const emptyRecognition=()=>({requests:0,judged:0,correct:0,lastText:null,lastMatched:null,lastDrawingId:null,lastRecognitionKey:null,lastProvider:null,lastModel:null,readings:[]});
+const emptyWriting=()=>({attempts:0,bestFit:0,last:null,draft:[],draftId:null,customGuide:null,ocr:emptyRecognition()});
 const writingSession=()=>({checks:0,totalFit:0,ocrRequests:0,ocrJudged:0,ocrCorrect:0});
 const unit=n=>Number.isFinite(n)&&n>=0&&n<=1;
 const counter=n=>Number.isSafeInteger(n)&&n>=0;
+const cleanReadings=readings=>Array.isArray(readings)?readings.filter(r=>r&&typeof r.drawingId==='string'&&r.drawingId.length<80&&typeof r.recognitionKey==='string'&&r.recognitionKey.length<1600&&(r.text===null||typeof r.text==='string'&&r.text.length<=80)&&(r.matched===null||typeof r.matched==='boolean')).slice(-20).map(r=>({drawingId:r.drawingId,recognitionKey:r.recognitionKey,text:r.text,matched:r.matched,provider:typeof r.provider==='string'?r.provider.slice(0,64):null,model:typeof r.model==='string'?r.model.slice(0,150):null})):[];
 const validDraft=paths=>Array.isArray(paths)&&paths.length<=80&&paths.reduce((n,p)=>n+(Array.isArray(p)?p.length:20000),0)<=12000&&paths.every(p=>Array.isArray(p)&&p.length&&p.every(q=>q&&Number.isFinite(q.x)&&q.x>=0&&q.x<=800&&Number.isFinite(q.y)&&q.y>=0&&q.y<=600));
 
 export function validateProgress(value, validIds, lessonIds) {
@@ -46,7 +48,10 @@ export function validateProgress(value, validIds, lessonIds) {
       const g=w.customGuide;
       if(g&&typeof g.ml==='string'&&Array.isArray(g.paths)&&g.paths.length>0&&g.paths.length<=12&&g.paths.flat().length<=5000&&g.paths.every(p=>Array.isArray(p)&&p.length>1&&p.every(q=>Array.isArray(q)&&q.length===2&&q.every(n=>Number.isFinite(n)&&n>=0&&n<=2000))))cleanItem.customGuide={ml:g.ml,paths:g.paths,source:'imported practice guide',reviewed:false};
       const o=w.ocr;
-      if(o&&counter(o.requests)&&counter(o.judged)&&counter(o.correct)&&o.correct<=o.judged&&o.judged<=o.requests)cleanItem.ocr={requests:o.requests,judged:o.judged,correct:o.correct,lastText:typeof o.lastText==='string'?o.lastText.slice(0,80):null,lastMatched:typeof o.lastMatched==='boolean'?o.lastMatched:null,lastDrawingId:typeof o.lastDrawingId==='string'?o.lastDrawingId.slice(0,80):null};
+      if(o&&counter(o.requests)&&counter(o.judged)&&counter(o.correct)&&o.correct<=o.judged&&o.judged<=o.requests){
+        const readings=cleanReadings(o.readings);
+        cleanItem.ocr={requests:o.requests,judged:o.judged,correct:o.correct,lastText:typeof o.lastText==='string'?o.lastText.slice(0,80):null,lastMatched:typeof o.lastMatched==='boolean'?o.lastMatched:null,lastDrawingId:typeof o.lastDrawingId==='string'?o.lastDrawingId.slice(0,80):null,lastRecognitionKey:typeof o.lastRecognitionKey==='string'?o.lastRecognitionKey.slice(0,1600):null,lastProvider:typeof o.lastProvider==='string'?o.lastProvider.slice(0,64):null,lastModel:typeof o.lastModel==='string'?o.lastModel.slice(0,150):null,readings};
+      }
       clean.writing[id]=cleanItem;
     }
   }
@@ -72,10 +77,13 @@ export function recordTrace(progress,id,result,now=Date.now()){
   progress=updateWriting(progress,id,{attempts:old.attempts+1,bestFit:Math.max(old.bestFit,result.fit),last:{fit:result.fit,smoothness:result.smoothness,strokeCount:result.strokeCount,passed:result.passed===true,drawingId:result.drawingId||null}});
   return {...progress,session:{...progress.session,lastAt:now,writing:{...s,checks:s.checks+1,totalFit:s.totalFit+result.fit}}};
 }
-export function recordHandwritingRecognition(progress,id,{text,matched,drawingId},now=Date.now()){
+export function recordHandwritingRecognition(progress,id,{text,matched,drawingId,recognitionKey,provider,model,previousReadings=[],force=false},now=Date.now()){
   progress=ensureSession(progress,now);const old=progress.writing?.[id]||emptyWriting(),o=old.ocr,s=progress.session.writing||writingSession(),judged=typeof matched==='boolean';
-  if(drawingId&&o.lastDrawingId===drawingId)return progress;
-  progress=updateWriting(progress,id,{ocr:{requests:o.requests+1,judged:o.judged+Number(judged),correct:o.correct+Number(matched===true),lastText:typeof text==='string'?text.slice(0,80):null,lastMatched:judged?matched:null,lastDrawingId:drawingId||null}});
+  const key=recognitionKey||'legacy',readings=cleanReadings([...(o.readings||[]),...previousReadings]);
+  if(!force&&drawingId&&(readings.some(r=>r.drawingId===drawingId&&r.recognitionKey===key)||(!recognitionKey&&o.lastDrawingId===drawingId)))return progress;
+  const reading={drawingId:drawingId||null,recognitionKey:key,text:typeof text==='string'?text.slice(0,80):null,matched:judged?matched:null,provider:typeof provider==='string'?provider.slice(0,64):null,model:typeof model==='string'?model.slice(0,150):null};
+  const unique=readings.filter((r,i)=>readings.findIndex(v=>v.drawingId===r.drawingId&&v.recognitionKey===r.recognitionKey)===i);
+  progress=updateWriting(progress,id,{ocr:{requests:o.requests+1,judged:o.judged+Number(judged),correct:o.correct+Number(matched===true),lastText:reading.text,lastMatched:reading.matched,lastDrawingId:reading.drawingId,lastRecognitionKey:key,lastProvider:reading.provider,lastModel:reading.model,readings:drawingId?[...unique.filter(r=>r.drawingId!==drawingId||r.recognitionKey!==key),reading].slice(-20):unique}});
   return {...progress,session:{...progress.session,lastAt:now,writing:{...s,ocrRequests:s.ocrRequests+1,ocrJudged:s.ocrJudged+Number(judged),ocrCorrect:s.ocrCorrect+Number(matched===true)}}};
 }
 

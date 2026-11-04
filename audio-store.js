@@ -2,7 +2,7 @@ import {packZip,unpackZip} from './zip.js';
 export const clipKey=(target,profile)=>JSON.stringify(['ml',target.section,target.kind,target.id,profile.provider,profile.model,profile.voice]);
 export function validateEndpoint(value) {
   const u=new URL(value,globalThis.location?.href||'http://localhost');
-  if(u.username||u.password||u.search||u.hash||!(u.protocol==='https:'||(u.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(u.hostname))))throw Error('Use an HTTPS speech gateway, or a local HTTP service. Do not put keys in its URL.');
+  if(u.username||u.password||u.search||u.hash||!(u.protocol==='https:'||(u.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(u.hostname))))throw Error('Use an HTTPS gateway, or a local HTTP service. Do not put keys in its URL.');
   return u.href.replace(/\/$/,'');
 }
 let database;

@@ -57,7 +57,7 @@ with sync_playwright() as p:
     calls=[];reply={'text':'മ','legible':True};pending=[]
     def recognize(route):
         body=route.request.post_data_json
-        assert list(body)==['image'],'the expected answer must not be sent'
+        assert set(body)<= {'image','provider','model'} and body.get('provider')=='openai','only ink and recognition settings may be sent'
         raw=base64.b64decode(body['image'].split(',')[1]);image=Image.open(io.BytesIO(raw)).convert('RGB')
         assert image.size==(512,512)
         pixels=image.tobytes()
@@ -94,7 +94,7 @@ with sync_playwright() as p:
     expect(page.locator('#toast')).to_contain_text('drawing changed')
     assert state(page)['writing']['vel-0']['ocr']['requests']==3
     reply.update(delay=False,status=503)
-    page.locator('#check-handwriting').click();expect(page.locator('#ocr-feedback')).to_contain_text('no OpenAI key configured')
+    page.locator('#check-handwriting').click();expect(page.locator('#ocr-feedback')).to_contain_text('selected OCR provider is not configured')
     assert state(page)['writing']['vel-0']['ocr']['requests']==3
     page.locator('#check-trace').click();expect(page.locator('#trace-feedback')).to_be_visible()
     print('PASS: edits during OCR discard stale results; missing gateway does not block local tracing')

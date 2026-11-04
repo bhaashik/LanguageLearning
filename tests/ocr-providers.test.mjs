@@ -1,0 +1,145 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Readable} from 'node:stream';
+import {ocrConfigurations,publicOCRConfig,ocrProviderRequest,parseOCRResult} from '../scripts/ocr-providers.mjs';
+import {handleOCR,ocrServerEnabled} from '../scripts/ocr.mjs';
+import {loadOCRSettings,saveOCRSettings,ocrSelection,ocrRecognitionKey,recognitionPayload} from '../ocr-settings.js';
+import {emptyProgress,recordHandwritingRecognition,validateProgress} from '../learning.js';
+
+const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+const transcription={text:'ക',legible:true};
+const fixture={
+  BHAASA_OCR_OPENAI_API_KEY:'openai-test-fixture',
+  BHAASA_OCR_GEMINI_API_KEY:'gemini-test-fixture',BHAASA_OCR_GEMINI_MODELS:'models/gemini-vision-fixture,gemini-other-fixture',
+  BHAASA_OCR_ANTHROPIC_API_KEY:'claude-test-fixture',BHAASA_OCR_ANTHROPIC_MODEL:'claude-vision-fixture',
+  BHAASA_OCR_COMPATIBLE_URL:'http://127.0.0.1:11434/v1/chat/completions',BHAASA_OCR_COMPATIBLE_MODEL:'local-vision-fixture',
+  BHAASA_OCR_CUSTOM_URL:'http://localhost:9000/recognize'
+};
+function envelope(provider,result=transcription){
+  const text=JSON.stringify(result);
+  return {
+    openai:{status:'completed',output:[{type:'message',content:[{type:'output_text',text}]}]},
+    gemini:{candidates:[{finishReason:'STOP',content:{parts:[{text:'private thinking',thought:true},{text}]}}]},
+    anthropic:{stop_reason:'end_turn',content:[{type:'text',text}]},
+    compatible:{choices:[{finish_reason:'stop',message:{content:text}}]},
+    custom:result
+  }[provider];
+}
+async function request(body,{env=fixture,method='POST',fetcher=()=>assert.fail('Unexpected provider call')}={}){
+  const req=Readable.from([Buffer.from(JSON.stringify(body))]);req.method=method;req.headers={'content-type':'application/json',origin:'http://localhost'};
+  const result={};const res={writeHead(status,headers){Object.assign(result,{status,headers});return this;},end(body){result.body=body;return this;}};
+  await handleOCR(req,res,new URL('http://localhost/api/ocr'),{env,fetcher});return result;
+}
+
+test('OCR credentials stay with their provider and public configuration never exposes them',async()=>{
+  let config=ocrConfigurations({BHAASA_TTS_API_KEY:'speech-fixture'});
+  assert.equal(config.openai.key,'speech-fixture');assert.equal(config.gemini.key,undefined);assert.equal(config.anthropic.key,undefined);
+  config=ocrConfigurations({BHAASA_TTS_PROVIDER:'elevenlabs',BHAASA_TTS_API_KEY:'elevenlabs-fixture'});
+  assert.equal(config.openai.configured,false);assert.equal(config.openai.key,undefined);
+  assert.equal(ocrConfigurations({BHAASA_OCR_API_KEY:'legacy-fixture'}).openai.configured,true);
+  assert.equal(ocrConfigurations({BHAASA_OCR_API_KEY:'legacy',BHAASA_OCR_OPENAI_API_KEY:'preferred'}).openai.key,'preferred');
+  const result=await request({}, {method:'GET'}),body=JSON.parse(result.body);
+  assert.equal(result.status,200);assert.equal(body.expectedAnswerSent,false);assert.equal(body.providers.length,5);
+  assert.ok(body.providers.every(c=>c.configured));
+  for(const [name,value] of Object.entries(fixture).filter(([name])=>/API_KEY|URL/.test(name)))assert.ok(!result.body.includes(value),`${name} must be private`);
+  assert.equal(ocrServerEnabled({BHAASA_OCR_COMPATIBLE_URL:fixture.BHAASA_OCR_COMPATIBLE_URL,BHAASA_OCR_COMPATIBLE_MODEL:'vision'}),true);
+  assert.equal(ocrServerEnabled({}),false);
+});
+
+test('each named OCR adapter uses its own protocol and returns a source-tagged transcription',async()=>{
+  for(const provider of ['openai','gemini','anthropic','compatible','custom']){
+    const result=await request({image:png,provider},{fetcher:async(url,options)=>{
+      const body=JSON.parse(options.body),config=ocrConfigurations(fixture)[provider];
+      assert.equal(options.redirect,'error');assert.ok(options.signal instanceof AbortSignal);
+      assert.ok(!options.body.includes('ക'),'no expected symbol is sent');
+      if(provider==='openai'){
+        assert.equal(url,'https://api.openai.com/v1/responses');assert.equal(options.headers.Authorization,`Bearer ${config.key}`);
+        assert.equal(body.input[0].content[1].image_url,png);assert.equal(body.store,false);
+      }else if(provider==='gemini'){
+        assert.equal(url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-vision-fixture:generateContent');
+        assert.equal(options.headers['x-goog-api-key'],config.key);assert.equal(options.headers.Authorization,undefined);
+        assert.equal(body.contents[0].parts[1].inlineData.data,png.split(',')[1]);assert.equal(body.generationConfig.responseMimeType,'application/json');
+      }else if(provider==='anthropic'){
+        assert.equal(url,'https://api.anthropic.com/v1/messages');assert.equal(options.headers['x-api-key'],config.key);
+        assert.equal(options.headers['anthropic-version'],'2023-06-01');assert.equal(body.messages[0].content[0].source.data,png.split(',')[1]);
+      }else if(provider==='compatible'){
+        assert.equal(url,fixture.BHAASA_OCR_COMPATIBLE_URL);assert.equal(options.headers.Authorization,undefined);
+        assert.equal(body.messages[1].content[1].image_url.url,png);assert.equal(body.model,'local-vision-fixture');
+      }else{assert.equal(url,fixture.BHAASA_OCR_CUSTOM_URL);assert.deepEqual(body,{image:png});}
+      return Response.json(envelope(provider));
+    }});
+    assert.equal(result.status,200,provider);assert.deepEqual(JSON.parse(result.body),{...transcription,provider,model:ocrConfigurations(fixture)[provider].model||null});
+  }
+});
+
+test('provider/model selection is explicit and allowlisted before a provider call',async()=>{
+  for(const provider of ['none','unknown','__proto__',12])assert.equal((await request({image:png,provider})).status,400);
+  assert.equal((await request({image:png,provider:'gemini',model:'unlisted'})).status,400);
+  assert.equal((await request({image:png,provider:'gemini',expected:'ക'})).status,400);
+  const missing=await request({image:png,provider:'gemini'},{env:{BHAASA_OCR_OPENAI_API_KEY:'openai-only-fixture'}});
+  assert.equal(missing.status,503);assert.equal(JSON.parse(missing.body).provider,'gemini');
+  const allowed=await request({image:png,provider:'gemini',model:'gemini-other-fixture'},{fetcher:async url=>{
+    assert.ok(url.includes('/gemini-other-fixture:generateContent'));return Response.json(envelope('gemini'));
+  }});assert.equal(allowed.status,200);
+  const legacyDefault=await request({image:png},{env:{...fixture,BHAASA_OCR_PROVIDER:'anthropic'},fetcher:async url=>{
+    assert.equal(url,'https://api.anthropic.com/v1/messages');return Response.json(envelope('anthropic'));
+  }});assert.equal(JSON.parse(legacyDefault.body).provider,'anthropic');
+});
+
+test('local/custom endpoints accept optional independent credentials and reject unsafe configuration',()=>{
+  for(const id of ['compatible','custom']){
+    const prefix=`BHAASA_OCR_${id.toUpperCase()}_`;
+    for(const url of ['http://public.example/ocr','https://user:pass@example.com/ocr','https://example.com/ocr?key=secret','relative/path']){
+      const config=ocrConfigurations({...fixture,[prefix+'URL']:url})[id];
+      assert.equal(config.configured,false);assert.equal(config.configurationError,'invalid_endpoint');
+    }
+    const config=ocrConfigurations({...fixture,[prefix+'API_KEY']:'local-own-fixture'})[id];
+    assert.equal(ocrProviderRequest(config,png,config.model).headers.Authorization,'Bearer local-own-fixture');
+    assert.ok(!JSON.stringify(publicOCRConfig(config)).includes('local-own-fixture'));
+  }
+});
+
+test('all adapters reject partial output, guesses, and invalid transcription while preserving uncertainty',()=>{
+  const partial={openai:{status:'incomplete'},gemini:{candidates:[{finishReason:'MAX_TOKENS'}]},anthropic:{stop_reason:'max_tokens'},compatible:{choices:[{finish_reason:'length'}]}};
+  for(const id of ['openai','gemini','anthropic','compatible','custom']){
+    assert.deepEqual(parseOCRResult(id,envelope(id,{text:null,legible:false})),{text:null,legible:false});
+    for(const invalid of [{text:'guess: ക',legible:true},{text:'',legible:true},{text:'ക',legible:'yes'}])assert.throws(()=>parseOCRResult(id,envelope(id,invalid)),undefined,id);
+    if(partial[id])assert.throws(()=>parseOCRResult(id,partial[id]));
+  }
+});
+
+test('provider failures never leak the upstream response or record a fabricated result',async()=>{
+  const denied=await request({image:png,provider:'anthropic'},{fetcher:async()=>new Response('private vendor details',{status:401})});
+  assert.equal(denied.status,401);assert.ok(!denied.body.includes('private'));
+  const bad=await request({image:png,provider:'compatible'},{fetcher:async()=>Response.json({choices:[]})});assert.equal(bad.status,502);
+});
+
+test('browser preferences migrate legacy endpoints and keep independent provider/model identities',()=>{
+  const previous=globalThis.localStorage,map=new Map([['bhaasa.ocr.gateway','http://localhost:9001/api/ocr']]);
+  globalThis.localStorage={getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v)};
+  try{
+    let settings=loadOCRSettings();assert.equal(settings.profiles.openai.endpoint,'http://localhost:9001/api/ocr');
+    settings.provider='gemini';settings.profiles.gemini.model='vision-a';assert.equal(saveOCRSettings(settings),true);
+    settings=loadOCRSettings();const selected=ocrSelection(settings);assert.equal(selected.provider,'gemini');assert.equal(selected.model,'vision-a');
+    assert.equal(settings.profiles.openai.endpoint,'http://localhost:9001/api/ocr');
+    const key=ocrRecognitionKey(selected);
+    for(const change of [{provider:'openai'},{model:'vision-b'},{endpoint:'https://other.example/ocr'}])assert.notEqual(ocrRecognitionKey({...selected,...change}),key);
+    assert.deepEqual(recognitionPayload(png,selected),{image:png,provider:'gemini',model:'vision-a'});
+    assert.deepEqual(recognitionPayload(png,{provider:'custom'}),{image:png});
+    assert.throws(()=>recognitionPayload(png,{provider:'none'}));
+  }finally{if(previous===undefined)delete globalThis.localStorage;else globalThis.localStorage=previous;}
+});
+
+test('one drawing retains readings across providers, reloads, and explicit fresh requests',()=>{
+  let progress=emptyProgress();const result={text:'ക',matched:true,drawingId:'same-drawing',provider:'openai',model:'vision-a',recognitionKey:'openai-key'};
+  progress=recordHandwritingRecognition(progress,'vel-0',result);
+  progress=recordHandwritingRecognition(progress,'vel-0',result);
+  assert.equal(progress.writing['vel-0'].ocr.requests,1);
+  progress=recordHandwritingRecognition(progress,'vel-0',{...result,provider:'gemini',recognitionKey:'gemini-key',matched:false,text:'മ'});
+  progress=recordHandwritingRecognition(progress,'vel-0',result);
+  assert.equal(progress.writing['vel-0'].ocr.requests,2);assert.equal(progress.writing['vel-0'].ocr.readings.length,2);
+  progress=validateProgress(JSON.parse(JSON.stringify(progress)),new Set(['vel-0']),new Set());
+  progress=recordHandwritingRecognition(progress,'vel-0',{...result,force:true});
+  const ocr=progress.writing['vel-0'].ocr;assert.equal(ocr.requests,3);assert.equal(ocr.correct,2);assert.equal(ocr.readings.length,2);
+  assert.deepEqual(progress.items,{});assert.deepEqual(progress.session.sections,{});
+});

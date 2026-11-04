@@ -1,15 +1,15 @@
 import {fitGuide,smoothPath,resample,pathLength,bounds,meaningfulInk,evaluateTrace,recognitionMatches} from './tracing.js';
 import {validateEndpoint} from './audio-store.js';
+import {OCR_PROVIDERS,loadOCRSettings,saveOCRSettings,ocrSelection,ocrRecognitionKey,recognitionPayload,providerLabel} from './ocr-settings.js';
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let guideData;
 const loadGuides=()=>guideData||=fetch(new URL('./data/tracing-guides.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Tracing guides could not load. Reopen the app online once to cache them.');return r.json();});
-function ocrEndpoint(){try{return localStorage.getItem('bhaasa.ocr.gateway')||new URL('./api/ocr',location.href).href;}catch{return new URL('./api/ocr',location.href).href;}}
-export function tracingPanel(item,script,saved){return `<section class="writing-card ${script?'tracing-card':''}"><div class="card-topline"><h2>${script?'Trace. Flow. Remember.':'A space to write'}</h2><span class="small-label">FINGER, PEN, OR MOUSE</span></div><p>${script?'Follow the curved path, then try it from memory. Lift your pen only between separate strokes.':'Try the shape, then try it from memory.'}</p>
+export function tracingPanel(item,script,saved){const settings=loadOCRSettings(),ocr=ocrSelection(settings);return `<section class="writing-card ${script?'tracing-card':''}"><div class="card-topline"><h2>${script?'Trace. Flow. Remember.':'A space to write'}</h2><span class="small-label">FINGER, PEN, OR MOUSE</span></div><p>${script?'Follow the curved path, then try it from memory. Lift your pen only between separate strokes.':'Try the shape, then try it from memory.'}</p>
   ${script?`<div class="trace-toolbar"><button type="button" class="button secondary small" id="demo-trace">Watch the strokes</button><label class="checkbox"><input id="show-stroke-markers" type="checkbox" checked> Numbers & arrows</label></div><p id="trace-plan" class="trace-plan" role="status">Loading practice guide…</p>`:''}
   <div class="canvas-wrap"><canvas id="writing-canvas" width="800" height="${script?600:400}" aria-label="Writing pad for ${esc(item.ml)}. Draw with a finger, pen, or mouse. Tracing and OCR feedback are optional."></canvas></div>
   <div class="writing-controls"><label class="checkbox"><input id="show-guide" type="checkbox" checked> Show guide</label><div><button type="button" class="button secondary small" data-action="undo-stroke">Undo</button><button type="button" class="button secondary small" data-action="clear-canvas">Clear</button></div></div>
-  ${script?`<div class="trace-actions button-row"><button type="button" class="button primary" id="check-trace" disabled>Check my tracing</button><button type="button" class="button secondary" id="check-handwriting" disabled>Check with OpenAI OCR (online)</button></div><div id="trace-feedback" aria-live="polite"></div><div id="ocr-feedback" aria-live="polite"></div><p class="section-note">Tracing fit, smoothness, and pen lifts are checked offline. Font-derived stroke paths are practice suggestions, not teacher-verified Malayalam stroke order. Separate marks can need extra strokes. OCR checks only your ink and may misread handwriting.</p>
-  <details class="trace-settings"><summary>Teacher guides, OCR connection & exports</summary><p>For a teacher’s preferred stroke order, import a Bhaasa stroke-guide JSON. You can export your own strokes for review and reuse as a guide.</p><div class="button-row"><button type="button" class="button secondary small" id="export-trace" disabled>Export my strokes</button><label class="button secondary small file-button">Import stroke guide<input id="import-stroke-guide" type="file" accept=".json,application/json"></label><button type="button" class="button secondary small" id="use-font-guide">Use font guide</button></div><label class="stacked">OpenAI OCR gateway<input id="ocr-endpoint" type="url" value="${esc(ocrEndpoint())}"></label><p>The local gateway uses your existing BHAASA_TTS_API_KEY, or a separate BHAASA_OCR_API_KEY. OCR sends your drawing to OpenAI only when you click its button. GitHub Pages needs a separate gateway; offline tracing needs no API key.</p></details><p id="writing-history" class="section-note">${saved?.attempts?`${saved.attempts} tracing checks · best fit ${Math.round((saved.bestFit||0)*100)}%.`:''}</p>`:'<p class="section-note">Freehand practice for whole words. Open a writing-system symbol for stroke guidance and handwriting recognition.</p>'}</section>`;}
+  ${script?`<div class="ocr-choice form-grid"><label>Handwriting recognition<select id="ocr-provider">${OCR_PROVIDERS.map(p=>`<option value="${p.id}" ${p.id===ocr.provider?'selected':''}>${p.label}</option>`).join('')}</select></label><label>Model · optional gateway default<input id="ocr-model" maxlength="150" list="ocr-model-options" value="${esc(ocr.model)}" placeholder="Use gateway default"><datalist id="ocr-model-options"></datalist></label></div><p id="ocr-service-note" class="section-note"></p><div class="trace-actions button-row"><button type="button" class="button primary" id="check-trace" disabled>Check my tracing</button><button type="button" class="button secondary" id="check-handwriting" disabled>Recognize my handwriting</button></div><div id="trace-feedback" aria-live="polite"></div><div id="ocr-feedback" aria-live="polite"></div><p class="section-note">Tracing fit, smoothness, and pen lifts are checked offline. Font-derived stroke paths are practice suggestions, not teacher-verified Malayalam stroke order. Separate marks can need extra strokes. OCR checks only your ink and may misread handwriting.</p>
+  <details class="trace-settings"><summary>Teacher guides, OCR connection & exports</summary><p>For a teacher’s preferred stroke order, import a Bhaasa stroke-guide JSON. You can export your own strokes for review and reuse as a guide.</p><div class="button-row"><button type="button" class="button secondary small" id="export-trace" disabled>Export my strokes</button><label class="button secondary small file-button">Import stroke guide<input id="import-stroke-guide" type="file" accept=".json,application/json"></label><button type="button" class="button secondary small" id="use-font-guide">Use font guide</button></div><label class="stacked">OCR gateway / custom endpoint<input id="ocr-endpoint" type="url" value="${esc(ocr.endpoint)}" placeholder="https://your-gateway.example/api/ocr"></label><button type="button" class="button secondary small" id="ocr-check-connection">Check OCR connection</button><p id="ocr-connection-status" role="status"></p><label class="checkbox"><input id="ocr-force-recheck" type="checkbox"> Request a fresh reading instead of reusing the saved one</label><p>Choose a provider supported by your gateway, or a custom/local OCR endpoint that can read Malayalam. Provider keys belong on that server, not in this page. A local vision model can run without a cloud API. Only your ink is sent when recognition is requested; tracing always stays available offline.</p></details><p id="writing-history" class="section-note">${saved?.attempts?`${saved.attempts} tracing checks · best fit ${Math.round((saved.bestFit||0)*100)}%.`:''}</p>`:'<p class="section-note">Freehand practice for whole words. Open a writing-system symbol for stroke guidance and handwriting recognition.</p>'}</section>`;}
 
 function drawPath(ctx,points){if(!points.length)return;ctx.beginPath();if(points.length===1){ctx.arc(points[0].x,points[0].y,ctx.lineWidth/2,0,2*Math.PI);ctx.fill();return;}const p=smoothPath(points);ctx.moveTo(p[0].x,p[0].y);for(let i=1;i<p.length;i++)ctx.lineTo(p[i].x,p[i].y);ctx.stroke();}
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -17,7 +17,9 @@ function cleanDraft(strokes){return strokes.map(p=>resample(p,2).map(({x,y})=>({
 export function createTracingPad({item,script,saved,onDraft,onCheck,onRecognition,onGuide,notify}){
   const find=s=>document.querySelector(s),canvas=find('#writing-canvas'),ctx=canvas.getContext('2d'),width=canvas.width,height=canvas.height;
   let draftId=saved?.draftId||crypto.randomUUID();
-  let strokes=(saved?.draft||[]).map(p=>p.map(q=>({...q}))),current=null,alive=true,guide=null,fontGuide=null,custom=saved?.customGuide?.ml===item.ml?saved.customGuide:null,pointer=null,revision=0,checkedRevision=-1,ocrRevision=saved?.ocr?.lastDrawingId===draftId?0:-1,animation=0,abort=null,recognizing=false;
+  const ocrSettings=loadOCRSettings();let readings=[...(saved?.ocr?.readings||[])];
+  if(!readings.length&&saved?.ocr?.lastDrawingId)readings.push({drawingId:saved.ocr.lastDrawingId,recognitionKey:ocrRecognitionKey({provider:'openai',...ocrSettings.profiles.openai}),text:saved.ocr.lastText,matched:saved.ocr.lastMatched,provider:'openai',model:saved.ocr.lastModel||null});
+  let strokes=(saved?.draft||[]).map(p=>p.map(q=>({...q}))),current=null,alive=true,guide=null,fontGuide=null,custom=saved?.customGuide?.ml===item.ml?saved.customGuide:null,pointer=null,revision=0,checkedRevision=-1,animation=0,abort=null,recognizing=false;
   const point=e=>{const r=canvas.getBoundingClientRect();return {x:Math.max(0,Math.min(width,(e.clientX-r.left)/r.width*width)),y:Math.max(0,Math.min(height,(e.clientY-r.top)/r.height*height))};};
   function marker(p,text){ctx.fillStyle='#214d3c';ctx.beginPath();ctx.arc(p.x,p.y,15,0,2*Math.PI);ctx.fill();ctx.fillStyle='white';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,p.x,p.y+1);}
   function draw(){
@@ -40,15 +42,39 @@ export function createTracingPad({item,script,saved,onDraft,onCheck,onRecognitio
     [...strokes,...(current?[current]:[])].forEach(p=>drawPath(ctx,p));
   }
   function update(){
-    const ink=meaningfulInk(strokes);for(const id of ['check-trace','check-handwriting','export-trace'])if(find('#'+id))find('#'+id).disabled=!ink||(id==='check-trace'&&!guide)||(id==='check-handwriting'&&recognizing);
+    const ink=meaningfulInk(strokes);for(const id of ['check-trace','check-handwriting','export-trace'])if(find('#'+id))find('#'+id).disabled=!ink||(id==='check-trace'&&!guide)||(id==='check-handwriting'&&(recognizing||ocrSettings.provider==='none'));
     if(find('#trace-plan')&&guide)find('#trace-plan').textContent=`${custom?'Custom':'Suggested'} guide: ${guide.paths.length} continuous ${guide.paths.length===1?'stroke':'strokes'} · ${strokes.length} drawn. ${find('#show-guide').checked?'Start at the numbered dots and follow the arrows.':'Guide hidden: write from memory.'}`;
   }
-  function changed(){revision++;draftId=crypto.randomUUID();checkedRevision=-1;ocrRevision=-1;if(find('#trace-feedback'))find('#trace-feedback').replaceChildren();if(find('#ocr-feedback'))find('#ocr-feedback').replaceChildren();onDraft(cleanDraft(strokes),draftId);draw();update();}
+  function showOCRReading(reading,cached){
+    find('#ocr-feedback').innerHTML=`<section class="trace-result ${reading.matched===true?'trace-good':''}"><h3>${cached?'Saved OCR reading':reading.matched===null?'The drawing could not be read reliably.':reading.matched?'OCR read the symbol you were practising.':'OCR read a different symbol.'}</h3>${reading.text?`<p class="ocr-reading">Read as <span lang="ml" class="ml">${esc(reading.text)}</span>${reading.matched===false?` · practising <span lang="ml" class="ml">${esc(item.ml)}</span>`:''}</p>`:''}<p>Source: ${esc(providerLabel(reading.provider||'openai'))}${reading.model?` · ${esc(reading.model)}`:''}. ${cached?'Reused for this unchanged drawing and provider settings.':'Only your ink was sent; the guide and expected answer were excluded.'} OCR can make mistakes.</p></section>`;
+  }
+  function syncOCRControls(){
+    if(!script)return;
+    const config=ocrSelection(ocrSettings),off=config.provider==='none';
+    find('#ocr-provider').value=config.provider;find('#ocr-model').value=config.model;find('#ocr-model').disabled=off||config.provider==='custom';
+    find('#ocr-model').placeholder='Use gateway default';find('#ocr-model-options').replaceChildren();
+    find('#ocr-endpoint').value=config.endpoint;find('#ocr-endpoint').disabled=off;find('#ocr-check-connection').disabled=off;
+    find('#ocr-service-note').textContent=off?'Recognition is off. Offline tracing, smoothness checks, and saved drawings still work.':config.provider==='custom'?'Use an OCR endpoint that supports Malayalam. A local engine can run without cloud APIs.':`${providerLabel(config.provider)} needs a configured gateway and an image-capable model. Only your ink is sent when you request recognition.`;
+    find('#ocr-connection-status').textContent='';find('#ocr-force-recheck').checked=false;
+    find('#ocr-feedback').replaceChildren();
+    const cached=readings.find(r=>r.drawingId===draftId&&r.recognitionKey===ocrRecognitionKey(config));if(cached)showOCRReading(cached,true);
+    update();
+  }
+  function changeOCRSettings(switchProvider){
+    const previous=ocrSettings.provider,profile=ocrSettings.profiles[previous];
+    try{
+      const value=find('#ocr-endpoint').value.trim();const endpoint=value?validateEndpoint(value):'';
+      profile.endpoint=endpoint;profile.model=find('#ocr-model').value.trim().slice(0,150);
+      if(switchProvider)ocrSettings.provider=find('#ocr-provider').value;
+      saveOCRSettings(ocrSettings);abort?.abort();syncOCRControls();
+    }catch(error){find('#ocr-provider').value=previous;find('#ocr-endpoint').value=profile.endpoint;notify(error.message);}
+  }
+  function changed(){revision++;draftId=crypto.randomUUID();checkedRevision=-1;if(find('#trace-feedback'))find('#trace-feedback').replaceChildren();if(find('#ocr-feedback'))find('#ocr-feedback').replaceChildren();onDraft(cleanDraft(strokes),draftId);draw();update();}
   function stopDemo(){cancelAnimationFrame(animation);animation=0;if(find('#demo-trace'))find('#demo-trace').textContent='Watch the strokes';}
   canvas.onpointerdown=e=>{if(e.button!==0||pointer!==null)return;e.preventDefault();stopDemo();pointer=e.pointerId;canvas.setPointerCapture(e.pointerId);current=[point(e)];draw();};
   canvas.onpointermove=e=>{if(pointer!==e.pointerId||!current)return;e.preventDefault();let events=e.getCoalescedEvents?.()||[];if(!events.length)events=[e];for(const event of events){const p=point(event);if(distanceEnough(current.at(-1),p))current.push(p);}if(current.length>4000)current=current.filter((_,i)=>i%2===0);draw();};
   function end(e){if(pointer!==e.pointerId||!current)return;if(e.type==='pointerup'){const p=point(e);if(distanceEnough(current.at(-1),p))current.push(p);}strokes.push(current);current=null;pointer=null;changed();}
-  canvas.onpointerup=end;canvas.onpointercancel=end;
+  canvas.onpointerup=end;canvas.onpointercancel=end;canvas.onlostpointercapture=end;
   find('#show-guide').onchange=()=>{stopDemo();draw();update();};
   if(find('#show-stroke-markers'))find('#show-stroke-markers').onchange=draw;
   function selectGuide(value){guide=fitGuide(value,width,height);draw();update();}
@@ -68,23 +94,57 @@ export function createTracingPad({item,script,saved,onDraft,onCheck,onRecognitio
         if((now-start)/15>total){stopDemo();draw();}else animation=requestAnimationFrame(frame);
       };animation=requestAnimationFrame(frame);
     };
-    find('#check-handwriting').onclick=async()=>{
-      if(recognizing)return;
-      if(!meaningfulInk(strokes)){notify('Draw a complete symbol first.');return;}
-      if(ocrRevision===revision){notify('This drawing was already checked. Change it to make a new OCR request.');return;}
-      const submitted=revision,button=find('#check-handwriting');recognizing=true;button.disabled=true;button.textContent='Reading your ink…';
+    find('#ocr-provider').onchange=()=>changeOCRSettings(true);
+    find('#ocr-model').onchange=()=>changeOCRSettings(false);
+    find('#ocr-endpoint').onchange=()=>changeOCRSettings(false);
+    find('#ocr-check-connection').onclick=async()=>{
+      const config=ocrSelection(ocrSettings),key=ocrRecognitionKey(config),status=find('#ocr-connection-status');
+      if(config.provider==='none')return;
       try{
-        const endpoint=validateEndpoint(find('#ocr-endpoint').value);try{localStorage.setItem('bhaasa.ocr.gateway',endpoint);}catch{}
+        const endpoint=validateEndpoint(config.endpoint);status.textContent='Checking the selected OCR connection…';
+        const response=await fetch(endpoint,{signal:AbortSignal.timeout(12000)});
+        if(!alive||ocrRecognitionKey(ocrSelection(ocrSettings))!==key)return;
+        if(!response.ok)throw Error(config.provider==='custom'?`The custom endpoint did not report a status (HTTP ${response.status}). A POST-only OCR endpoint may still support recognition.`:`No OCR gateway status received (HTTP ${response.status}). Update and restart the local Bhaasa server, or connect a compatible gateway.`);
+        const data=await response.json();
+        if(!alive||ocrRecognitionKey(ocrSelection(ocrSettings))!==key)return;
+        if(config.provider==='custom'){status.textContent=data.configured===false?'The custom endpoint reports that it is not configured.':'The endpoint responded. Test a drawing to verify recognition and Malayalam support.';return;}
+        const entry=Array.isArray(data.providers)?data.providers.find(p=>p.id===config.provider||p.provider===config.provider):data.provider===config.provider?data:null;
+        if(!entry){status.textContent='This gateway does not report the selected provider. Update its configuration, or choose another OCR endpoint.';return;}
+        const models=Array.isArray(entry.models)?entry.models.filter(m=>typeof m==='string'&&m.length<=150):entry.model?[entry.model]:[];
+        find('#ocr-model-options').innerHTML=models.map(model=>`<option value="${esc(model)}"></option>`).join('');
+        find('#ocr-model').placeholder=entry.model?`Gateway default: ${entry.model}`:'Use gateway default';
+        if(!entry.configured)status.textContent=`${providerLabel(config.provider)} is not configured on this gateway. Set its provider-specific credential, model, and endpoint as needed in the local .env.local file.`;
+        else if(config.model&&!models.includes(config.model))status.textContent='The gateway is configured, but the typed model is not in its allowlist. Choose a listed model or update the server settings.';
+        else status.textContent=`${providerLabel(config.provider)} is configured on the gateway. No recognition request was made; account access and Malayalam accuracy still need a sample check.`;
+      }catch(error){if(alive&&ocrRecognitionKey(ocrSelection(ocrSettings))===key)status.textContent=error.name==='AbortError'?'Connection check timed out.':error.message;}
+    };
+    find('#check-handwriting').onclick=async()=>{
+      if(recognizing||ocrSettings.provider==='none')return;
+      if(!meaningfulInk(strokes)){notify('Draw a complete symbol first.');return;}
+      const config=ocrSelection(ocrSettings),key=ocrRecognitionKey(config),force=find('#ocr-force-recheck').checked;
+      const cached=readings.find(r=>r.drawingId===draftId&&r.recognitionKey===key);
+      if(cached&&!force){showOCRReading(cached,true);return;}
+      const submitted=revision,button=find('#check-handwriting'),previousReadings=readings;recognizing=true;button.disabled=true;button.textContent='Reading your ink…';
+      try{
+        if(!config.endpoint)throw Error('Set the custom OCR endpoint in the connection settings first.');
+        const endpoint=validateEndpoint(config.endpoint);
         abort=new AbortController();const timer=setTimeout(()=>abort?.abort(),45000);
-        let response;try{response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:inkImage(strokes,width,height)}),signal:abort.signal});}finally{clearTimeout(timer);}
-        if(!response.ok){const messages={503:'The OCR gateway has no OpenAI key configured. Run it locally with your .env.local file.',404:'No OCR gateway was found at this address. Update and restart your local Bhaasa server.'};throw Error(messages[response.status]||`OCR returned HTTP ${response.status}. Check the gateway, model access, and billing.`);}
-        const result=await response.json();if(!alive)return;if(submitted!==revision){notify('Your drawing changed during recognition. Check the new drawing again.');return;}
-        if(typeof result.legible!=='boolean'||!(typeof result.text==='string'||result.text===null))throw Error('The OCR service returned an invalid recognition result.');
-        ocrRevision=submitted;const matched=result.legible&&result.text?recognitionMatches(result.text,item.ml):null;
-        find('#ocr-feedback').innerHTML=`<section class="trace-result ${matched===true?'trace-good':''}"><h3>${matched===null?'The drawing could not be read reliably.':matched?'OCR read the symbol you were practising.':'OCR read a different symbol.'}</h3>${result.text?`<p class="ocr-reading">Read as <span lang="ml" class="ml">${esc(result.text)}</span>${matched===false?` · practising <span lang="ml" class="ml">${esc(item.ml)}</span>`:''}</p>`:''}<p>Only your ink was sent; the guide and expected answer were excluded. OCR can make mistakes. Use its reading alongside the tracing feedback.</p></section>`;
-        onRecognition({text:result.text,matched,drawingId:draftId});
-      }catch(e){if(alive)find('#ocr-feedback').innerHTML=`<p class="notice" role="status">${esc(e.name==='AbortError'?'OCR timed out. Try again when the gateway is available.':e.message)} Your drawing and offline tracing checks are still available.</p>`;}
-      finally{abort=null;recognizing=false;if(alive){button.textContent='Check with OpenAI OCR (online)';update();}}
+        let response;try{response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(recognitionPayload(inkImage(strokes,width,height),config)),signal:abort.signal});}finally{clearTimeout(timer);}
+        if(!response.ok){const messages={503:'The selected OCR provider is not configured on this gateway. Use Check OCR connection and update the local .env.local file.',400:'The gateway rejected the OCR settings or model. Check the provider and its model allowlist.',404:'No OCR gateway was found at this address. Update and restart your local Bhaasa server, or choose another endpoint.'};throw Error(messages[response.status]||`OCR returned HTTP ${response.status}. Check the gateway, model access, and billing.`);}
+        const result=await response.json();if(!alive)return;
+        if(submitted!==revision){notify('Your drawing changed during recognition. Check the new drawing again.');return;}
+        if(key!==ocrRecognitionKey(ocrSelection(ocrSettings))){notify('The OCR provider settings changed. Check with the newly selected service.');return;}
+        if(typeof result.legible!=='boolean'||!(typeof result.text==='string'||result.text===null)||(result.legible&&(!result.text?.trim()||result.text.length>80||!/^[\u0d00-\u0d7f\u200c\u200d\s]+$/.test(result.text))))throw Error('The OCR service returned an invalid recognition result.');
+        if(config.provider!=='custom'&&result.provider!==undefined&&result.provider!==config.provider)throw Error('The gateway returned a different provider. Check its routing configuration.');
+        const text=result.legible?result.text.trim():null,matched=result.legible?recognitionMatches(text,item.ml):null;
+        const reading={text,matched,drawingId:draftId,recognitionKey:key,provider:config.provider==='custom'&&typeof result.provider==='string'?result.provider.slice(0,64):config.provider,model:typeof result.model==='string'?result.model.slice(0,150):config.model||null};
+        readings=[...readings.filter(r=>r.drawingId!==draftId||r.recognitionKey!==key),reading].slice(-20);
+        find('#ocr-force-recheck').checked=false;showOCRReading(reading,false);onRecognition({...reading,previousReadings,force});
+      }catch(e){if(alive){
+        if(key!==ocrRecognitionKey(ocrSelection(ocrSettings)))notify('The OCR provider settings changed. Your drawing is kept.');
+        else find('#ocr-feedback').innerHTML=`<p class="notice" role="status">${esc(e.name==='AbortError'?'OCR timed out. Try again when the gateway is available.':e.message)} Your drawing and offline tracing checks are still available.</p>`;
+      }}
+      finally{abort=null;recognizing=false;if(alive){button.textContent='Recognize my handwriting';update();}}
     };
     find('#export-trace').onclick=()=>download(new Blob([JSON.stringify({format:'bhaasa-trace-v1',itemId:item.id,ml:item.ml,width,height,paths:cleanDraft(strokes).map(p=>p.map(({x,y})=>[x,y]))},null,2)],{type:'application/json'}),`bhaasa-${item.id}-strokes.json`);
     find('#import-stroke-guide').onchange=async e=>{
@@ -97,7 +157,7 @@ export function createTracingPad({item,script,saved,onDraft,onCheck,onRecognitio
   }
   draw();update();
   if(script&&saved?.last?.drawingId===draftId)find('#trace-feedback').innerHTML=`<section class="trace-result"><h3>Saved tracing check</h3><p>Guide fit ${Math.round(saved.last.fit*100)}% · smoothness ${Math.round(saved.last.smoothness*100)}% · ${saved.last.strokeCount} strokes. You can check the unchanged drawing again without adding another attempt.</p></section>`;
-  if(script&&saved?.ocr?.lastDrawingId===draftId)find('#ocr-feedback').innerHTML=`<section class="trace-result"><h3>Saved OCR reading</h3><p>${saved.ocr.lastText?`<span class="ml" lang="ml">${esc(saved.ocr.lastText)}</span>`:'Uncertain / unreadable'} · ${saved.ocr.lastMatched===true?'matched this symbol':saved.ocr.lastMatched===false?'read a different symbol':'not graded'}. Change the drawing to request a new reading.</p></section>`;
+  if(script)syncOCRControls();
   document.fonts.load('200px Malayalam').then(()=>{if(alive)draw();});
   return {undo:()=>{stopDemo();strokes.pop();changed();},clear:()=>{stopDemo();strokes=[];current=null;pointer=null;changed();},cleanup:()=>{alive=false;stopDemo();abort?.abort();}};
 }
