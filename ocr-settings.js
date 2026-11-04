@@ -44,6 +44,15 @@ export function ocrErrorMessage(status,body,provider){
     provider_region_unavailable:`${label} reports that this service or free tier is unavailable in the request’s region. Check your project’s regional availability.`,
     provider_request_invalid:`${label} rejected the recognition request (HTTP ${status}). Check that the exact API model ID supports image input and JSON output. This error came from the provider, not the local model allowlist.`,
     provider_unavailable:`${label} is temporarily unavailable (HTTP ${status}). Try again later.`,
+    recognition_token_limit:`${label} stopped at the output-token limit before completing the transcription (MAX_TOKENS). No handwriting result was scored. Update and restart Bhaasa for the Gemini 2.5 Flash token-budget fix; requests are not retried automatically.`,
+    recognition_incomplete:`${label} responded without a completed transcription. Bhaasa rejected the incomplete result; no handwriting result was scored.`,
+    recognition_blocked:`${label} filtered this recognition response. No handwriting result was scored. Try another drawing or provider.`,
+    recognition_no_result:`${label} returned no transcription text. No handwriting result was scored. Retry explicitly when ready.`,
+    recognition_invalid_json:`${label} responded, but Bhaasa could not read the response as the required JSON transcription. No handwriting result was scored.`,
+    recognition_invalid_result:`${label} responded, but the result did not match the required Malayalam transcription format. No handwriting result was scored.`,
+    ocr_timeout:'Bhaasa timed out waiting for the OCR service. No handwriting result was scored. Check your connection and retry explicitly.',
+    ocr_connection_failed:'The Bhaasa server could not complete its connection to the OCR provider. Check the server’s network, proxy, and TLS setup. No handwriting result was scored.',
+    ocr_gateway_failed:'Bhaasa could not finish processing the recognition request (HTTP 502). This is a local gateway failure; no handwriting result was scored.',
     provider_rejected:`${label} rejected the request (HTTP ${status}). Check API access and the selected model.`
   };
   if(body?.error==='model_not_allowed'){
@@ -51,5 +60,5 @@ export function ocrErrorMessage(status,body,provider){
     return `The Model field does not match this Bhaasa server’s enabled models.${models.length?` Enabled models: ${models.join(', ')}.`:''} Clear the optional Model field to use the server default, or choose a listed model. No provider request was made.`;
   }
   if(typeof body?.error==='string'&&Object.hasOwn(messages,body.error))return messages[body.error];
-  return {503:messages.provider_not_configured,400:'The request was rejected (HTTP 400). Clear the optional Model field and use Check OCR connection to see the server’s enabled models. Update the local server for more specific error details.',404:'No OCR gateway was found at this address, or the provider could not find the model. Use Check OCR connection and restart the updated local Bhaasa server.'}[status]||`OCR returned HTTP ${status}. Check the gateway, API access, and selected model.`;
+  return {503:messages.provider_not_configured,502:'OCR returned HTTP 502. This can mean an incomplete/invalid provider response, a connection failure, or a provider outage. Update and restart the local Bhaasa server for a specific error reason.',400:'The request was rejected (HTTP 400). Clear the optional Model field and use Check OCR connection to see the server’s enabled models. Update the local server for more specific error details.',404:'No OCR gateway was found at this address, or the provider could not find the model. Use Check OCR connection and restart the updated local Bhaasa server.'}[status]||`OCR returned HTTP ${status}. Check the gateway, API access, and selected model.`;
 }

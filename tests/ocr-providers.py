@@ -98,7 +98,17 @@ with sync_playwright() as p:
         (400,'provider_request_invalid','error came from the provider'),
         (404,'provider_model_unavailable','could not find or access that model'),
         (429,'provider_quota_exceeded','exhausted quota'),
-        (503,'provider_unavailable','temporarily unavailable')
+        (503,'provider_unavailable','temporarily unavailable'),
+        (502,'provider_unavailable','temporarily unavailable'),
+        (502,'recognition_token_limit','stopped at the output-token limit'),
+        (502,'recognition_invalid_json','required JSON transcription'),
+        (502,'recognition_invalid_result','required Malayalam transcription format'),
+        (502,'recognition_no_result','returned no transcription text'),
+        (502,'recognition_blocked','filtered this recognition response'),
+        (502,'recognition_incomplete','without a completed transcription'),
+        (504,'ocr_timeout','timed out waiting'),
+        (502,'ocr_connection_failed','could not complete its connection'),
+        (502,'ocr_gateway_failed','local gateway failure')
     ]:
         reply.update(status=status,error=code,models=['vision-a'])
         page.locator('#check-handwriting').click();expect(page.locator('#ocr-feedback')).to_contain_text(fragment)

@@ -1,4 +1,4 @@
-import {ocrConfigurations,publicOCRConfig,ocrProviderRequest,parseOCRResult,ocrProviderFailure,listGeminiModels} from './ocr-providers.mjs';
+import {ocrConfigurations,publicOCRConfig,ocrProviderRequest,parseOCRResult,ocrProviderFailure,listGeminiModels,OCRResultError} from './ocr-providers.mjs';
 import {normalizeOCRModel,genericGeminiModel} from '../ocr-settings.js';
 export const ocrServerEnabled=(env=process.env)=>Object.values(ocrConfigurations(env)).some(c=>c.key||c.configured);
 export async function handleOCR(req,res,url,{env=process.env,fetcher=fetch}={}){
@@ -41,8 +41,13 @@ export async function handleOCR(req,res,url,{env=process.env,fetcher=fetch}={}){
     const request=ocrProviderRequest(config,data.image,model);
     const response=await fetcher(request.url,{method:'POST',headers:request.headers,signal:AbortSignal.any([AbortSignal.timeout(40000),cancellation.signal]),redirect:'error',body:JSON.stringify(request.body)});
     if(!response.ok){let body;try{body=await response.json();}catch{}res.writeHead(response.status,{...headers,'Content-Type':'application/json'}).end(JSON.stringify(ocrProviderFailure(provider,response.status,body)));return true;}
-    const result=parseOCRResult(provider,await response.json());
+    let body;try{body=await response.json();}catch(error){if(error instanceof SyntaxError)throw new OCRResultError('recognition_invalid_json');throw error;}
+    const result=parseOCRResult(provider,body);
     res.writeHead(200,{...headers,'Content-Type':'application/json'}).end(JSON.stringify({...result,provider,model:model||null}));return true;
-  }catch{if(!res.destroyed)res.writeHead(502,{...headers,'Content-Type':'text/plain'}).end('OCR could not complete. Your local tracing feedback remains available.');return true;}
+  }catch(error){
+    const timedOut=['TimeoutError','AbortError'].includes(error?.name),networkCodes=['ENOTFOUND','EAI_AGAIN','ECONNREFUSED','ECONNRESET','UND_ERR_CONNECT_TIMEOUT','UND_ERR_SOCKET','ETIMEDOUT'];
+    const code=error instanceof OCRResultError?error.code:timedOut?'ocr_timeout':networkCodes.includes(error?.cause?.code)?'ocr_connection_failed':'ocr_gateway_failed';
+    if(!res.destroyed)res.writeHead(timedOut?504:502,{...headers,'Content-Type':'application/json'}).end(JSON.stringify({error:code,source:'gateway'}));return true;
+  }
   finally{res.removeListener?.('close',cancel);req.removeListener?.('aborted',cancel);}
 }

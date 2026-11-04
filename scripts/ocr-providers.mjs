@@ -30,7 +30,11 @@ export function ocrProviderRequest(config,image,model){
     body={model,store:false,instructions:OCR_INSTRUCTIONS,input:[{role:'user',content:[{type:'input_text',text:OCR_PROMPT},{type:'input_image',image_url:image,detail:'high'}]}],text:{format:{type:'json_schema',name:'malayalam_handwriting',strict:true,schema:OCR_SCHEMA}},max_output_tokens:150};
   }else if(config.id==='gemini'){
     url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.replace(/^models\//,''))}:generateContent`;headers['x-goog-api-key']=config.key;
-    body={systemInstruction:{parts:[{text:OCR_INSTRUCTIONS}]},contents:[{role:'user',parts:[{text:OCR_PROMPT},{inlineData:{mimeType:'image/png',data:base64}}]}],generationConfig:{responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{text:{type:'STRING',nullable:true},legible:{type:'BOOLEAN'}},required:['text','legible']},maxOutputTokens:1024}};
+    body={systemInstruction:{parts:[{text:OCR_INSTRUCTIONS}]},contents:[{role:'user',parts:[{text:OCR_PROMPT},{inlineData:{mimeType:'image/png',data:base64}}]}],generationConfig:{responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{text:{type:'STRING',nullable:true},legible:{type:'BOOLEAN'}},required:['text','legible']},maxOutputTokens:4096}};
+    // Gemini 2.5 Flash supports disabling thinking. The former 1024-token
+    // shared budget could be spent on thoughts before producing any JSON.
+    // Do not apply this model-specific setting to Pro or newer families.
+    if(['gemini-2.5-flash','gemini-2.5-flash-lite'].includes(normalizeOCRModel('gemini',model)))body.generationConfig.thinkingConfig={thinkingBudget:0};
   }else if(config.id==='anthropic'){
     url='https://api.anthropic.com/v1/messages';headers['x-api-key']=config.key;headers['anthropic-version']='2023-06-01';
     body={model,max_tokens:512,system:OCR_INSTRUCTIONS,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/png',data:base64}},{type:'text',text:OCR_PROMPT}]}]};
@@ -42,20 +46,35 @@ export function ocrProviderRequest(config,image,model){
   }else throw Error('Unsupported OCR provider');
   return {url,headers,body};
 }
+export class OCRResultError extends Error {
+  constructor(code){super(code);this.name='OCRResultError';this.code=code;}
+}
 export function parseOCRResult(provider,body){
+  try{return parseResult(provider,body);}catch(error){if(error instanceof OCRResultError)throw error;throw new OCRResultError('recognition_invalid_result');}
+}
+function requireCompleted(finish,expected,limit){
+  if(finish===limit)throw new OCRResultError('recognition_token_limit');
+  if(['SAFETY','RECITATION','BLOCKLIST','PROHIBITED_CONTENT','SPII','IMAGE_SAFETY'].includes(finish))throw new OCRResultError('recognition_blocked');
+  if(finish!==expected)throw new OCRResultError('recognition_incomplete');
+}
+function parseResult(provider,body){
   let text;
   if(provider==='openai'){
-    if(body.status!=='completed')throw Error('Incomplete recognition');
+    if(body.status!=='completed')throw new OCRResultError(body.incomplete_details?.reason==='max_output_tokens'?'recognition_token_limit':'recognition_incomplete');
     text=body.output?.filter(o=>o.type==='message').flatMap(o=>o.content||[]).filter(c=>c.type==='output_text').map(c=>c.text).join('');
   }else if(provider==='gemini'){
-    const candidate=body.candidates?.[0];if(candidate?.finishReason!=='STOP')throw Error('Incomplete recognition');
+    if(body.promptFeedback?.blockReason)throw new OCRResultError('recognition_blocked');
+    const candidate=body.candidates?.[0];if(!candidate)throw new OCRResultError('recognition_no_result');
+    requireCompleted(candidate.finishReason,'STOP','MAX_TOKENS');
     text=candidate.content?.parts?.filter(p=>typeof p.text==='string'&&!p.thought).map(p=>p.text).join('');
   }else if(provider==='anthropic'){
-    if(body.stop_reason!=='end_turn')throw Error('Incomplete recognition');text=body.content?.filter(c=>c.type==='text').map(c=>c.text).join('');
+    requireCompleted(body.stop_reason,'end_turn','max_tokens');text=body.content?.filter(c=>c.type==='text').map(c=>c.text).join('');
   }else if(provider==='compatible'){
-    const choice=body.choices?.[0];if(choice?.finish_reason!=='stop')throw Error('Incomplete recognition');text=choice.message?.content;
+    const choice=body.choices?.[0];requireCompleted(choice?.finish_reason,'stop','length');text=choice.message?.content;
   }else if(provider==='custom')return validateOCRResult(body);
-  return validateOCRResult(JSON.parse(text));
+  if(typeof text!=='string'||!text.trim())throw new OCRResultError('recognition_no_result');
+  let result;try{result=JSON.parse(text);}catch{throw new OCRResultError('recognition_invalid_json');}
+  return validateOCRResult(result);
 }
 export function validateOCRResult(result){
   if(!result||typeof result.legible!=='boolean'||!(result.text===null||typeof result.text==='string')||(result.text&&(!/^[\u0d00-\u0d7f\u200c\u200d\s]+$/.test(result.text)||result.text.length>80))||(result.legible&&!result.text?.trim()))throw Error('Invalid transcription');

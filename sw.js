@@ -1,5 +1,5 @@
 const BASE=new URL('./',self.location.href);
-const CACHE=`bhaasa-${BASE.pathname}-v10`;
+const CACHE=`bhaasa-${BASE.pathname}-v11`;
 const ASSETS=['./','./index.html','./styles.css','./app.js','./content.js','./learning.js','./linguistics.js','./sounds.js','./audio.js','./audio-store.js','./audio-ui.js','./speech-presets.js','./ocr-settings.js','./tracing.js','./tracing-pad.js','./data/tracing-guides.json','./zip.js','./manifest.webmanifest','./assets/icon.svg','./assets/icon-192.png','./assets/icon-512.png','./assets/malayalam.ttf','./assets/devanagari.ttf'];
 const urls=ASSETS.map(p=>new URL(p,BASE).href);
 self.addEventListener('install',event=>event.waitUntil((async()=>{

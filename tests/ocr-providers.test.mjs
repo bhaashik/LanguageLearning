@@ -182,6 +182,53 @@ test('model listing diagnoses invalid keys, works without a valid default model 
   assert.equal(result.status,200);assert.equal(JSON.parse(result.body).configuredModelListed,false);
 });
 
+test('Gemini 2.5 Flash avoids spending the transcription budget on thinking without changing other families',async()=>{
+  for(const model of ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.5-pro','gemini-3.8-flash']){
+    const env={...fixture,BHAASA_OCR_GEMINI_MODELS:model};let calls=0;
+    const result=await request({image:png,provider:'gemini',model},{env,fetcher:async(url,options)=>{
+      calls++;const body=JSON.parse(options.body),config=body.generationConfig;
+      assert.equal(config.maxOutputTokens,4096);assert.equal(config.responseMimeType,'application/json');
+      if(['gemini-2.5-flash','gemini-2.5-flash-lite'].includes(model))assert.deepEqual(config.thinkingConfig,{thinkingBudget:0});
+      else assert.equal(config.thinkingConfig,undefined,'do not force unsupported thinking settings onto Pro or newer models');
+      assert.ok(!options.body.includes('ക'),'no target symbol is sent');return Response.json(envelope('gemini'));
+    }});
+    assert.equal(result.status,200);assert.equal(calls,1);assert.equal(JSON.parse(result.body).text,'ക');
+  }
+});
+
+test('response token limits, empty text, malformed JSON and invalid results have distinct local errors',async()=>{
+  const cases=[
+    [{candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{thought:true,text:'private thinking'}, {text:JSON.stringify(transcription)}]}}],usageMetadata:{thoughtsTokenCount:1024}},'recognition_token_limit'],
+    [{candidates:[{finishReason:'STOP',content:{parts:[{thought:true,text:'private thinking'}]}}]},'recognition_no_result'],
+    [{candidates:[{finishReason:'STOP',content:{parts:[{text:'private invalid JSON'}]}}]},'recognition_invalid_json'],
+    [envelope('gemini',{text:'private non-Malayalam',legible:true}),'recognition_invalid_result'],
+    [{promptFeedback:{blockReason:'SAFETY',private:'private details'}},'recognition_blocked'],
+    [{candidates:[{finishReason:'OTHER',content:{parts:[{text:'private unfinished'}]}}]},'recognition_incomplete']
+  ];
+  for(const [body,code] of cases){
+    let calls=0;const result=await request({image:png,provider:'gemini'},{fetcher:async()=>{calls++;return Response.json(body);}});
+    const error=JSON.parse(result.body);assert.equal(result.status,502);assert.equal(error.error,code);assert.equal(error.source,'gateway');
+    assert.equal(calls,1,'a failed paid request is not retried automatically');assert.ok(!result.body.includes('private'));assert.ok(!result.body.includes('ക'));
+    assert.match(ocrErrorMessage(502,error,'gemini'),/No handwriting result was scored|no handwriting result was scored/);
+  }
+  const html=await request({image:png,provider:'gemini'},{fetcher:async()=>new Response('<html>private upstream page</html>')});
+  assert.equal(JSON.parse(html.body).error,'recognition_invalid_json');assert.ok(!html.body.includes('private'));
+});
+
+test('a local timeout/connection failure remains distinct from an upstream HTTP 502',async()=>{
+  for(const [failure,code,status] of [
+    [new DOMException('private timeout','TimeoutError'),'ocr_timeout',504],
+    [new TypeError('private fetch failure',{cause:{code:'ECONNRESET',secret:'private'}}),'ocr_connection_failed',502],
+    [new Error('private unexpected exception'),'ocr_gateway_failed',502]
+  ]){
+    const result=await request({image:png,provider:'gemini'},{fetcher:async()=>{throw failure;}});
+    assert.equal(result.status,status);assert.equal(JSON.parse(result.body).error,code);assert.ok(!result.body.includes('private'));
+  }
+  const upstream=await request({image:png,provider:'gemini'},{fetcher:async()=>Response.json({error:{message:'private provider error'}},{status:502})});
+  assert.equal(upstream.status,502);assert.equal(JSON.parse(upstream.body).source,'provider');assert.equal(JSON.parse(upstream.body).error,'provider_unavailable');
+  assert.equal(parseOCRResult('gemini',envelope('gemini',{text:null,legible:false})).legible,false,'unreadable ink is still a successful, unjudged response');
+});
+
 test('browser preferences migrate legacy endpoints and keep independent provider/model identities',()=>{
   const previous=globalThis.localStorage,map=new Map([['bhaasa.ocr.gateway','http://localhost:9001/api/ocr']]);
   globalThis.localStorage={getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v)};
