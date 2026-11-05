@@ -8,6 +8,7 @@ await cp(`${root}assets`,`${root}dist/assets`,{recursive:true});
 await cp(`${root}data`,`${root}dist/data`,{recursive:true});
 await mkdir(`${root}dist/docs`);
 await copyFile(`${root}docs/CONTENT.md`,`${root}dist/docs/CONTENT.md`);
+await copyFile(`${root}docs/PROVIDERS.html`,`${root}dist/docs/PROVIDERS.html`);
 await copyFile(`${root}README.md`,`${root}dist/README.md`);
 await copyFile(`${root}.nojekyll`,`${root}dist/.nojekyll`);
 console.log('Static Bhaasa app built in dist/. Server code, credentials, tests, and source PDFs are excluded.');

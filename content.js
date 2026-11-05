@@ -54,7 +54,14 @@ export const conjuncts = make('cj','conjunct','Conjuncts', [
   ['ട്ട','ṭṭa','','ʈː','ട് + ട'], ['ത്ത','tta','','t̪ː','ത് + ത'], ['ന്ത','nta','','n̪t̪','ന് + ത'],
   ['മ്പ','mpa','','mp','മ് + പ'], ['ങ്ക','ṅka','','ŋk','ങ് + ക'], ['ഞ്ച','ñca','','ɲt͡ʃ','ഞ് + ച'],
   ['ണ്ട','ṇṭa','','ɳʈ','ണ് + ട'], ['ക്ഷ','kṣa','','kʂ ~ kʃ','ക് + ഷ'],
-  ['ജ്ഞ','jña','','ɲ ~ d͡ʒɲ','ജ് + ഞ; pronunciation varies by word and register.'], ['റ്റ','ṯṯa','','tː','റ് + റ; usually an alveolar long t.']
+  ['ജ്ഞ','jña','','ɲ ~ d͡ʒɲ','ജ് + ഞ; pronunciation varies by word and register.'], ['റ്റ','ṯṯa','','tː','റ് + റ; usually an alveolar long t.'],
+  ['മ്മ','mma','','mː','മ് + മ'],['ന്ന','nna','','nː','ന് + ന'],['ണ്ണ','ṇṇa','','ɳː','ണ് + ണ'],
+  ['ങ്ങ','ṅṅa','','ŋː','ങ് + ങ'],['ഞ്ഞ','ñña','','ɲː','ഞ് + ഞ'],['ച്ച','cca','','t͡ʃː','ച് + ച'],
+  ['ല്ല','lla','','lː','ല് + ല'],['ള്ള','ḷḷa','','ɭː','ള് + ള'],['ച്ഛ','ccha','','t͡ʃʰː','ച് + ഛ; pronunciation varies by word.'],
+  ['ക്ര','kra','','kr','ക് + ര'],['ഗ്ര','gra','','ɡr','ഗ് + ര'],['ത്ര','tra','','t̪r','ത് + ര'],
+  ['ദ്ര','dra','','d̪r','ദ് + ര'],['പ്ര','pra','','pr','പ് + ര'],['ബ്ര','bra','','br','ബ് + ര'],
+  ['ശ്ര','śra','','ʃr','ശ് + ര'],['ക്ത','kta','','kt̪','ക് + ത'],['സ്ത','sta','','st̪','സ് + ത'],
+  ['സ്ക','ska','','sk','സ് + ക'],['സ്പ','spa','','sp','സ് + പ']
 ]);
 
 export const words = [
@@ -126,14 +133,46 @@ export const lessons = [
 ];
 
 export const scriptItems = [...vowels,...consonants,...signs,...chillus,...conjuncts];
-export const exampleWords=make('ex','word','Sound examples',exampleRows);
+// Complete practice forms for the existing consonants/conjuncts. These are
+// constructed sound units, not 672 new vocabulary words or mandatory lessons.
+export const syllableBases=[...consonants,...conjuncts];
+export const syllablePatterns=[
+  ['a','','a','ɐ'],['aa','ാ','ā','aː'],['i','ി','i','i'],['ii','ീ','ī','iː'],
+  ['u','ു','u','u'],['uu','ൂ','ū','uː'],['r','ൃ','ṛ','r̩'],['e','െ','e','e'],
+  ['ee','േ','ē','eː'],['ai','ൈ','ai','ai̯'],['o','ൊ','o','o'],['oo','ോ','ō','oː'],
+  ['au','ൗ','au','au̯'],['no-vowel','്','','']
+].map(([id,sign,roman,ipa])=>({id,sign,roman,ipa,label:id==='no-vowel'?'No vowel · chandrakala':`${roman}${id==='a'?' · inherent vowel':id==='r'?' · learned vocalic vowel':''}`}));
+const knownForms=new Map([...consonants,...conjuncts,...signs].map(i=>[i.ml.normalize('NFC'),i]));
+export const syllables=[];
+export const syllableForms=syllableBases.flatMap(base=>syllablePatterns.map(pattern=>{
+  const spelling=(base.ml+pattern.sign).normalize('NFC');
+  let item=pattern.id==='a'?base:knownForms.get(spelling);
+  if(!item){
+    const roman=base.roman.replace(/a$/,'')+pattern.roman;
+    item={id:`syll-${base.id}-${pattern.id}`,kind:'syllable',group:base.kind==='conjunct'?'Conjunct syllables':'Consonant syllables',ml:spelling,roman,meaning:roman,
+      ipa:base.ipa.split(/\s*~\s*/).map(sound=>sound+pattern.ipa).join(' ~ '),
+      note:`${base.ml} (${base.roman}) + ${pattern.sign||'inherent a'} → ${spelling}. Constructed writing practice; this sound unit is not necessarily a word.${pattern.id==='r'?' Vocalic ṛ is learned/Sanskritic and uncommon with many bases.':''}`};
+    knownForms.set(spelling,item);syllables.push(item);
+  }
+  return {baseId:base.id,patternId:pattern.id,itemId:item.id};
+}));
+export const writingItems=[...scriptItems,...syllables];
+export const exampleWords=[...make('ex','word','Sound examples',exampleRows),...make('cx','word','Conjunct examples',[
+  ['കണ്ണ്','kaṇṇŭ','eye'],['മഞ്ഞ','mañña','yellow'],['അങ്ങാടി','aṅṅāṭi','market'],['നല്ല','nalla','good'],
+  ['കള്ളം','kaḷḷaṃ','lie'],['ക്രിയ','kriya','action'],['ദ്രാവകം','drāvakaṃ','liquid'],['ബ്രഷ്','braṣŭ','brush'],
+  ['ശ്രദ്ധ','śraddha','attention'],['വ്യക്തി','vyakti','person'],['സ്കൂൾ','skūḷ','school'],['സ്പർശം','sparśaṃ','touch']
+])];
 const lexical=[...words,...phrases,...exampleWords];
 const lookup=Object.fromEntries(lexical.map(i=>[i.ml,i]));
 for(const [group,items] of Object.entries({Vowels:vowels,Consonants:consonants,'Vowel signs':signs,Chillus:chillus,Conjuncts:conjuncts})) {
   items.forEach((item,i)=>{
-    const spelling=exampleSpellings[group][i];
+    const spelling=exampleSpellings[group][i]||(group==='Conjuncts'?lexical.find(w=>w.kind==='word'&&w.ml.includes(item.ml))?.ml:undefined);
     item.example=spelling?{type:'word',itemId:lookup[spelling].id}:{type:'teaching',ml:item.ml,roman:item.roman,meaning:'Rare symbol: no everyday example in this course.',note:item.ml==='ൿ'?'Compare the equivalent ക് in വാക്ക് (vākkŭ, word). Rare ൿ is not the ordinary spelling in that word.':'This learned vocalic symbol is included for recognition. Practise its shape; do not treat it as an everyday Malayalam word.'};
   });
+}
+for(const item of syllables){
+  const example=lexical.find(word=>word.kind==='word'&&word.ml.normalize('NFC').includes(item.ml));
+  item.example=example?{type:'word',itemId:example.id}:{type:'teaching',ml:item.ml,roman:item.roman,meaning:'Constructed syllable practice',note:'No example word is supplied for this combination. Practise it as a sound unit; not every constructed combination is common in Malayalam.'};
 }
 const grammarAnswers=[
  ['What is a useful default word order?','Subject–object–verb',['Subject–object–verb','Verb–subject–object','Object–verb–subject','No word order patterns']],
@@ -145,6 +184,6 @@ const grammarAnswers=[
 ];
 export const grammarItems=grammar.map((g,i)=>({id:`grammar-${i}`,kind:'grammar',section:'grammar',group:'Grammar patterns',...g,question:grammarAnswers[i][0],answer:grammarAnswers[i][1],options:grammarAnswers[i][2]}));
 export const phoneticsItems=soundTopics.map(t=>({id:`sound-${t.id}`,kind:'phonetics',section:'phonetics',group:'Sounds of Malayalam',...lookup[t.target],id:`sound-${t.id}`,kind:'phonetics',section:'phonetics',question:t.question,answer:t.answer,options:t.options,note:t.body}));
-export const allItems = [...scriptItems,...lexical,...grammarItems,...phoneticsItems].map(enrich);
+export const allItems = [...writingItems,...lexical,...grammarItems,...phoneticsItems].map(enrich);
 export const byId = Object.fromEntries(allItems.map(item=>[item.id,item]));
 export const sections=[{id:'script',title:'Writing system'},{id:'phonetics',title:'Sounds of Malayalam'},{id:'words',title:'Words'},{id:'phrases',title:'Phrases'},{id:'grammar',title:'Grammar'}];

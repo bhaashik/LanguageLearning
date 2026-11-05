@@ -123,7 +123,7 @@ with sync_playwright() as p:
     print('PASS: Malayalam and Roman search, categories, empty state')
 
     navigate(page, 'script')
-    for label, count in [('Vowels', 16), ('Consonants', 36), ('Vowel signs', 14), ('Chillus', 6), ('Conjuncts', 12)]:
+    for label, count in [('Vowels', 16), ('Consonants', 36), ('Vowel signs', 14), ('Chillus', 6), ('Conjuncts', 32)]:
         page.locator(f'[data-script="{label}"]').click()
         expect(page.locator('.letter-tile')).to_have_count(count)
     navigate(page, 'item/vel-0')
@@ -172,7 +172,7 @@ with sync_playwright() as p:
     context.set_offline(True)
     page.reload()
     expect(page.locator('h1')).to_contain_text('A script full of curves.')
-    expect(page.locator('.letter-tile')).to_have_count(12)
+    expect(page.locator('.letter-tile')).to_have_count(32)
     navigate(page, 'lesson/first-vowels')
     expect(page.locator('.study-content > .ml')).to_have_text('അ')
     page.locator('[data-quiz]').click()

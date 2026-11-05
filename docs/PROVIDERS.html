@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>OCR &amp; speech setup · Bhaasa</title>
+<style>
+:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f8f8f2;color:#26372e;font:16px/1.7 system-ui,sans-serif}main{max-width:980px;margin:auto;padding:32px 22px 80px}h1,h2,h3{line-height:1.3}h1{font-size:2.2rem}h2{margin-top:52px;border-top:1px solid #d8dfd3;padding-top:24px}h3{margin-top:30px}a{color:#20533e}nav{padding:20px;background:#eaf0e4;border-radius:12px}nav a{display:inline-block;margin:4px 18px 4px 0}pre{padding:18px;background:#edf0e7;border:1px solid #d9e0d1;border-radius:8px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}code{font-family:ui-monospace,monospace;font-size:.9em}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:.9em}th,td{padding:12px 10px;text-align:left;vertical-align:top;border:1px solid #d9dfd3;overflow-wrap:anywhere}th{background:#edf1e6}.note{border-left:4px solid #829c70;padding:12px 18px;background:#edf1e6}.table-wrap{overflow:auto}li{margin:7px 0}section{scroll-margin-top:20px}@media print{body{background:white}main{max-width:none;padding:0}nav{display:none}pre{break-inside:avoid}a{color:inherit}h2{break-after:avoid}table{font-size:10pt}}
+</style></head><body><main>
+<p><a href="../#about">← Back to Bhaasa</a> · <a href="../#script">Writing system</a> · <a href="../#audio">Voices &amp; recordings</a></p>
+<h1>Set up OCR and speech models</h1>
+<p>Use this guide on your computer to connect Bhaasa to common recognition and speech services. It can be saved or printed from your browser and is cached with the app for offline reading. New cloud requests still need internet. Examples are settings to fill locally, not credentials supplied with the app.</p>
+<nav aria-label="Guide contents"><a href="#start">Start locally</a><a href="#fields">Which field?</a><a href="#ocr">OCR providers</a><a href="#tts">Speech providers</a><a href="#custom">Custom/local services</a><a href="#errors">Troubleshooting</a><a href="#practice">Conjuncts &amp; syllables</a><a href="#sources">Provider documentation</a></nav>
+
+<section id="start"><h2>1. Start the local app</h2>
+<ol><li>Install Node.js 24, open a terminal in your Bhaasa checkout, and run <code>git pull</code>.</li><li>Create or edit <code>.env.local</code> in that folder. Keep your existing working settings. This file is ignored by Git. Use API keys, not OAuth client IDs, client secrets, or chat-account passwords.</li><li>Set the provider variables in the examples below, replacing every <code>YOUR_…</code> value. Restart the server after editing this file.</li></ol>
+<pre><code>node --env-file=.env.local scripts/serve.mjs</code></pre>
+<p>Open <code>http://127.0.0.1:4173</code>. Stop a running server with Ctrl+C before restarting it. Close and reopen existing app tabs after an update. If you already use <code>http://localhost:4173</code>, keep that hostname consistently: browser progress is separate for different origins.</p>
+<p>Only OpenAI Realtime speech needs the optional transport packages:</p><pre><code>npm run speech:install</code></pre>
+<p>Static GitHub Pages hosting provides lessons and tracing. OCR and speech generation need a reachable gateway; when your keys are on your computer, opening your local Bhaasa app is the simplest setup. A subscription to ChatGPT, Gemini, Claude, or another chat app does not establish API access. Free API tiers and quotas depend on the model, account, region, and provider.</p></section>
+
+<section id="fields"><h2>2. Keep providers, models, voices, and gateways separate</h2>
+<div class="table-wrap"><table><thead><tr><th>Field</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>OCR provider dropdown</td><td>Google Gemini</td><td>The company/protocol, not a model ID.</td></tr>
+<tr><td>OCR Model ID text field</td><td><code>gemini-2.5-flash</code>, or blank</td><td>An exact server-enabled model ID. Blank uses the server default.</td></tr>
+<tr><td>OCR gateway / custom endpoint</td><td><code>http://127.0.0.1:4173/api/ocr</code></td><td>Your Bhaasa server. Never paste this URL into Model ID.</td></tr>
+<tr><td>Speech profile provider/model/voice</td><td><code>gemini</code> / <code>gemini-2.5-flash-preview-tts</code> / <code>Kore</code></td><td>A speech-capable model and exact, case-sensitive voice ID.</td></tr>
+<tr><td>Speech gateway URL</td><td><code>http://127.0.0.1:4173/api/speech</code></td><td>The server that returns playable audio.</td></tr>
+<tr><td>API key</td><td>In <code>.env.local</code> only</td><td>Never enter it in a model field or URL.</td></tr>
+</tbody></table></div>
+<p>If your app uses <code>localhost</code>, use that hostname in both gateway URLs. No Google OAuth JavaScript origin or redirect URI is needed for Bhaasa’s Gemini API-key integration. The canvas <strong>Clear</strong> button erases the drawing; to change a model, edit the Model ID text box.</p></section>
+
+<section id="ocr"><h2>3. OCR: recognize your handwriting</h2>
+<p>Open <strong>Writing system → a symbol, conjunct, or syllable</strong>. Choose Handwriting recognition, expand <strong>Teacher guides, OCR connection &amp; exports</strong>, and use <strong>Check OCR connection</strong>. It reports local configuration, defaults, and enabled models without generating a reading. The gateway address for the default local setup is <code>http://127.0.0.1:4173/api/ocr</code>.</p>
+<p><strong>Recognize my handwriting</strong> sends a black-on-white image of your ink only. The printed target, guide, arrows, symbol ID, and expected answer are excluded. An uncertain reading is not counted as a wrong letter. Saved readings are reused for unchanged drawings and provider settings. Use <strong>Request a fresh reading</strong> only when you want another request.</p>
+
+<h3 id="gemini-ocr">Google Gemini</h3>
+<p>Create a Gemini API key in <a href="https://aistudio.google.com/api-keys">Google AI Studio</a>. In Cloud Console, the relevant service is Generative Language API; Google Cloud Vision is a different API. Server-side keys should not use browser HTTP-referrer restrictions. Restrict API access appropriately for your project.</p>
+<pre><code>BHAASA_OCR_GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+BHAASA_OCR_GEMINI_MODEL=gemini-2.5-flash
+BHAASA_OCR_GEMINI_MODELS=gemini-2.5-flash</code></pre>
+<p>Select <strong>Google Gemini</strong>. <strong>List models from Gemini</strong> asks Google for model IDs using the server key, without sending a drawing or making a generation request. Set the exact available image-capable model ID in the singular <code>_MODEL</code> variable and include it in <code>_MODELS</code> if that list is set. Listing a model does not verify its image/JSON support, generation permission, free-tier allowance, or handwriting quality.</p>
+<p>The example <code>gemini-2.5-flash</code> supports image input and has a specific no-thinking configuration in Bhaasa. Use another exact ID if your account’s current availability differs. TTS, image-generation, embedding, and research model IDs are not interchangeable with OCR models.</p>
+
+<h3>OpenAI vision</h3><pre><code>BHAASA_OCR_OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+BHAASA_OCR_OPENAI_MODEL=gpt-4.1-mini
+BHAASA_OCR_OPENAI_MODELS=gpt-4.1-mini</code></pre>
+<p>Select <strong>OpenAI</strong>. The model must accept image input through the Responses API and support strict JSON output. Legacy <code>BHAASA_OCR_API_KEY</code> and <code>BHAASA_OCR_MODEL</code> settings remain supported. OpenAI OCR can reuse <code>BHAASA_TTS_API_KEY</code> only while the speech provider is OpenAI or unset. A dedicated OCR key is clearer when speech uses a different provider.</p>
+
+<h3>Anthropic Claude</h3><pre><code>BHAASA_OCR_ANTHROPIC_API_KEY=YOUR_ANTHROPIC_API_KEY
+BHAASA_OCR_ANTHROPIC_MODEL=YOUR_IMAGE_CAPABLE_CLAUDE_MODEL_ID
+BHAASA_OCR_ANTHROPIC_MODELS=YOUR_IMAGE_CAPABLE_CLAUDE_MODEL_ID</code></pre>
+<p>Select <strong>Anthropic Claude</strong>. Copy a complete vision-capable API model ID available to your account; <code>Claude</code> alone, a web-chat name, or a wildcard is not an API model ID. The Messages API transcribes the ink and must return the requested JSON. Raw provider output is validated before scoring.</p>
+
+<h3>Local vision models: Ollama or vLLM</h3>
+<p>Install and run the engine separately. For example, with Ollama running, download a vision model from its library:</p><pre><code>ollama pull qwen2.5vl:7b
+ollama list</code></pre>
+<pre><code>BHAASA_OCR_COMPATIBLE_URL=http://127.0.0.1:11434/v1/chat/completions
+BHAASA_OCR_COMPATIBLE_MODEL=qwen2.5vl:7b
+BHAASA_OCR_COMPATIBLE_MODELS=qwen2.5vl:7b</code></pre>
+<p>Select <strong>Local / OpenAI-compatible vision model</strong>. The URL must be the full chat-completions endpoint. For vLLM, use its actual port and loaded model ID. Set <code>BHAASA_OCR_COMPATIBLE_API_KEY</code> if that service requires authentication. The model must accept inline image data URLs and follow the JSON instruction. Bhaasa does not install model weights or guarantee that any particular local model reads Malayalam handwriting well. Hardware and disk requirements belong to the selected engine. Once its model is installed, a local service can work without cloud APIs.</p>
+
+<h3>Custom OCR: Tesseract, PaddleOCR, or another engine</h3>
+<p>Choose <strong>Custom OCR endpoint</strong>. An engine needs a small HTTP adapter implementing the contract below; its ordinary CLI or Python function is not directly an HTTP gateway. Configure the engine for Malayalam. Printed-text OCR models can perform poorly on handwriting and joined syllables.</p><pre><code>POST /recognize
+Content-Type: application/json
+
+{"image":"data:image/png;base64,…"}
+
+200 application/json
+{"text":"ക്കോ","legible":true}
+
+// An unreadable drawing:
+{"text":null,"legible":false}</code></pre>
+<p>Do not pass the expected answer to the engine. Return only the recognized Unicode text, with optional provider/model labels. With a direct custom endpoint, the browser sends only <code>image</code>; the endpoint must allow the app’s exact origin via CORS. For server-held authentication, use:</p><pre><code>BHAASA_OCR_PROVIDER=custom
+BHAASA_OCR_CUSTOM_URL=http://127.0.0.1:9000/recognize
+BHAASA_OCR_CUSTOM_API_KEY=YOUR_OPTIONAL_CUSTOM_SERVICE_KEY</code></pre>
+<p>Then use Custom OCR with the Bhaasa endpoint <code>http://127.0.0.1:4173/api/ocr</code>. The server forwards the image and optional Bearer key to your configured adapter. Omit the key line for unauthenticated local services. Named OCR providers still use their own explicitly selected adapters; <code>BHAASA_OCR_PROVIDER</code> controls image-only/default clients.</p>
+</section>
+
+<section id="tts"><h2>4. TTS: generate and save speech</h2>
+<p>OCR and speech are independent. A successful Gemini vision request does not configure a speech voice. The built-in speech gateway selects <strong>one speech provider per server process</strong>; multiple OCR providers can coexist. Set the speech provider, key, enabled speech models, and default voice, restart, and open <strong>Voices &amp; recordings → Add a voice or speech model</strong>.</p>
+<ol><li>Source: <strong>Speech service / model</strong>.</li><li>Give the profile a name. Enter the exact provider, model, and voice IDs shown below.</li><li>Set Speech gateway URL to <code>http://127.0.0.1:4173/api/speech</code>.</li><li><strong>Discover service models</strong> reports the server-enabled models and configured voice; it does not generate audio.</li><li>Add the profile, choose a single item, and use <strong>Generate &amp; save clip</strong>. Audition Malayalam before generating a larger collection.</li></ol>
+<p>Leave <strong>Save a speech model’s audio the first time it is generated</strong> checked to reuse clips. A new provider/model/voice identity keeps a separate collection. <strong>Generate &amp; replace clip</strong> explicitly overwrites the current identity. Export your audio ZIP before replacing recordings you want to keep. Gender is a user/provider label, not inferred from the voice name.</p>
+
+<h3 id="gemini-tts">Google Gemini speech</h3><pre><code>BHAASA_TTS_PROVIDER=gemini
+BHAASA_TTS_API_KEY=YOUR_GEMINI_API_KEY
+BHAASA_TTS_MODELS=gemini-2.5-flash-preview-tts
+BHAASA_TTS_VOICE=Kore</code></pre>
+<p>Profile provider: <code>gemini</code>; model: <code>gemini-2.5-flash-preview-tts</code>; voice: <code>Kore</code>. Use another Gemini speech-generation model or prebuilt voice only if it is available to your project. The regular vision model <code>gemini-2.5-flash</code> is not a substitute for the speech model. Copying the same Google API key into the local OCR and TTS key variables is fine if the project grants both capabilities; no key goes into the browser.</p>
+<p>Bhaasa requests single-speaker audio and wraps the returned 24 kHz, mono, 16-bit PCM in a playable WAV file. No optional OpenAI transport installation is needed for Gemini. Incomplete/filtered audio is rejected instead of being cached. Quota, preview-model availability, language support, and pricing are controlled by Google.</p>
+
+<h3 id="openai-tts">OpenAI speech</h3><pre><code>BHAASA_TTS_PROVIDER=openai
+BHAASA_TTS_API_KEY=YOUR_OPENAI_API_KEY
+BHAASA_TTS_MODELS=gpt-realtime-2.1-mini
+BHAASA_TTS_VOICE=marin</code></pre>
+<p>Run <code>npm run speech:install</code> once. Use the app’s OpenAI setup panel to choose a configured model/voice and add its profile. Realtime speech saves WAV audio. The legacy <code>gpt-4o-mini-tts</code>, <code>tts-1</code>, and <code>tts-1-hd</code> adapters save MP3; consult the provider’s current lifecycle information and the app’s labels before choosing older models. ChatGPT voice subscriptions do not automatically supply API billing.</p>
+
+<h3>ElevenLabs</h3><pre><code>BHAASA_TTS_PROVIDER=elevenlabs
+BHAASA_TTS_API_KEY=YOUR_ELEVENLABS_API_KEY
+BHAASA_TTS_MODELS=YOUR_MALAYALAM_CAPABLE_MODEL_ID
+BHAASA_TTS_VOICE=YOUR_ELEVENLABS_VOICE_ID</code></pre>
+<p>Profile provider: <code>elevenlabs</code>; model and voice: the exact IDs from your ElevenLabs account. A voice ID is not its display name. Confirm that the chosen model currently supports Malayalam; do not assume every “multilingual” model does. The gateway’s legacy default <code>eleven_multilingual_v2</code> is not a recommendation for Malayalam—set an explicitly suitable model. Synthetic voices and pronunciation still need review.</p>
+
+<h3>Device speech and recordings</h3>
+<p>For device speech, select an installed Malayalam voice in the app. Install Malayalam speech data in your OS/browser settings if none is reported. No cloud API key is needed, but some device voices use network services. Web Speech does not expose audio bytes, so Bhaasa cannot save device speech as a recording.</p>
+<p>For audio made in another tool—Gemini Studio, Azure Speech Studio, Google Cloud TTS, Piper, Kokoro, or a human recording—create a <strong>Recording / imported audio</strong> profile with the real provider/model/voice labels, select the exact item, and use <strong>Import / replace audio</strong>. Use a voice that actually supports Malayalam. These external tools’ voices are not bundled. Imported clips preserve your chosen identity; they do not require a live gateway. Microphone recordings use <strong>Stop &amp; save</strong>.</p></section>
+
+<section id="custom"><h2>5. Other speech services and local engines</h2>
+<p>Azure Speech, Google Cloud Text-to-Speech, Piper, Kokoro, Coqui, and other services can be connected through a compatible speech HTTP adapter. They are distinct from the native Gemini/OpenAI/ElevenLabs adapters. Use a language-capable voice/model available from that engine; availability of a French or English voice does not establish Malayalam support.</p>
+<pre><code>BHAASA_TTS_PROVIDER=custom
+BHAASA_TTS_URL=http://127.0.0.1:9001/tts
+BHAASA_TTS_MODELS=YOUR_ADAPTER_MODEL_ID
+BHAASA_TTS_VOICE=YOUR_ADAPTER_VOICE_ID</code></pre>
+<p>Set <code>BHAASA_TTS_API_KEY</code> only if this adapter needs a Bearer token. In Bhaasa, create a service profile with provider <code>custom</code>, the same enabled model/voice IDs, and the local Bhaasa <code>/api/speech</code> gateway. The adapter receives:</p>
+<pre><code>POST /tts
+Content-Type: application/json
+Authorization: Bearer OPTIONAL_ADAPTER_KEY
+
+{"input":"നന്ദി","language":"ml-IN","provider":"custom",
+ "model":"YOUR_ADAPTER_MODEL_ID","voice":"YOUR_ADAPTER_VOICE_ID",
+ "response_format":"mp3"}
+
+200 Content-Type: audio/wav
+[binary WAV bytes]</code></pre>
+<p>The adapter maps input/model/voice to its engine’s own API and returns binary audio, never JSON-wrapped/base64 audio. It may return <code>audio/wav</code> even though the forwarding request offers MP3. For Google Cloud TTS this means decoding its <code>audioContent</code>; for Azure it means making its authenticated SSML/audio request; for a local CLI it means running the selected voice and returning its generated file. Keep those engines’ credentials in the adapter, not in the app. Direct custom gateways can also implement <code>GET /models</code>:</p>
+<pre><code>{"configured":true,"models":[{"id":"YOUR_ADAPTER_MODEL_ID",
+ "provider":"custom","voices":[{"id":"YOUR_ADAPTER_VOICE_ID",
+ "name":"My Malayalam voice","gender":"unspecified"}]}]}</code></pre>
+<p>A direct service gateway must match the provider field in your saved profile and allow the app’s exact origin. URLs must use HTTPS or HTTP loopback, with no embedded key, query string, or fragment. Connecting a CLI requires building/running this adapter; changing a URL alone does not convert its protocol. Importing generated audio files is available if you do not want to run an adapter.</p>
+<h3>Keep multiple speech providers available</h3>
+<p>Run separate Bhaasa server processes on different ports, each with a separate ignored environment file and provider. For a second service, set:</p><pre><code>PORT=4174
+BHAASA_TTS_ALLOWED_ORIGIN=http://127.0.0.1:4173
+# Add that service's BHAASA_TTS_PROVIDER, API_KEY, MODELS, and VOICE.
+</code></pre><pre><code>node --env-file=.env.second-service.local scripts/serve.mjs</code></pre>
+<p>Keep the learning app open on port 4173 and add a voice profile pointing to <code>http://127.0.0.1:4174/api/speech</code>. Use a different port per service, and the exact origin actually used by your browser. OCR keys remain provider-specific; another service never borrows the OpenAI key.</p></section>
+
+<section id="errors"><h2>6. Troubleshooting</h2><div class="table-wrap"><table><thead><tr><th>Symptom</th><th>Action</th></tr></thead><tbody>
+<tr><td>Check my tracing is greyed out</td><td>Draw a full-size form and release the pen/finger/mouse. Watch the status below the buttons. Retry loading the practice guide if needed. The demo is not your ink. No gateway or key is needed for tracing.</td></tr>
+<tr><td>Google did not list an HTTP URL</td><td>A gateway address is in Model ID. Put the URL in the gateway field and an exact model name in Model ID, or leave Model ID blank for the default.</td></tr>
+<tr><td>Model is not enabled / HTTP 400</td><td>Use Check OCR connection to see server-enabled IDs. Match the exact model, add it to the matching server <code>_MODELS</code> list, and restart. Do not paste a URL or provider name as the model.</td></tr>
+<tr><td>Invalid key, restricted key, API disabled</td><td>Review the key’s project, API access, and application restrictions. OAuth web-client credentials are not API keys. Never paste your key into chat or a screenshot.</td></tr>
+<tr><td>HTTP 403 on localhost</td><td>Keep <code>localhost</code> or <code>127.0.0.1</code> consistent. For a separate gateway, allow the app’s exact origin on that server.</td></tr>
+<tr><td>HTTP 429</td><td>Review the model’s project quota/rate limit and free-tier availability. Wait for the quota window or explicitly choose another available service; Bhaasa does not silently switch paid models.</td></tr>
+<tr><td>Provider HTTP 503/502</td><td>The provider reported a temporary failure. Wait and retry explicitly. Another enabled model can be tried without changing the key or gateway.</td></tr>
+<tr><td>Local HTTP 502, MAX_TOKENS, invalid JSON, or no text</td><td>Update Bhaasa, restart the Node server, reopen the tab, and read the specific response error. Gemini 2.5 Flash/Flash Lite use a no-thinking request and a 4096-token cap. Partial/filtered/invalid replies are not scored, and failed requests are not retried automatically.</td></tr>
+<tr><td>Speech returns HTTP 400</td><td>The profile provider, model, and voice must match the selected speech server. TTS requires a speech model, not a vision model. Check case-sensitive voice IDs.</td></tr>
+<tr><td>Gemini speech fails or produces no playable file</td><td>Use a speech-generation model and prebuilt voice available to your project. Bhaasa accepts completed single-speaker 24 kHz PCM audio and saves WAV. Check speech quota separately from OCR.</td></tr>
+<tr><td>OpenAI Realtime cannot connect</td><td>Install the optional transport with <code>npm run speech:install</code>. Check API access, network/proxy, and normal TLS trust; do not disable certificate verification.</td></tr>
+<tr><td>A new model/voice plays an older recording</td><td>Check the selected profile identity and exact content text. Use Generate &amp; replace clip or Import / replace audio deliberately. Different model/voice identities keep separate clips.</td></tr>
+</tbody></table></div>
+<p>For a safe configuration report, open <code>http://127.0.0.1:4173/api/ocr</code> or <code>http://127.0.0.1:4173/api/speech/models</code>. These list configured model names and status, not API keys. “Configured” means local settings exist; it does not prove live API permission or quality.</p></section>
+
+<section id="practice"><h2>7. Conjunct and syllable practice</h2>
+<p>Open <strong>Writing system → Conjuncts</strong> for the expanded cluster reference. <strong>Writing system → Syllables</strong> combines any of the 36 consonants or 32 conjuncts with 14 patterns: the inherent vowel, vowel signs including learned vocalic ṛ, and the no-vowel chandrakala form. Choose any preview or card to open its tracing/OCR pad.</p>
+<p>All 952 combinations have full-form guides. Existing shapes reuse their original cards; added forms keep independent drafts, tracing checks, OCR readings, recordings, and backups. Stroke demos, guide hiding, pen-lift/smoothness feedback, teacher-guide import, and touch input work the same way. Section-level script audio keeps the reference sequence; extra syllables can be recorded/generated individually.</p>
+<p>Some generated combinations are uncommon or not words. Example words are shown when supplied by the course; other forms are explicitly constructed practice. Roman, broad IPA, extended Devanagari, and sound-unit glosses are teaching aids. Font-derived paths suggest a practice route and are not teacher-verified Malayalam handwriting stroke order. Detached marks can require three or more strokes; some complex forms have up to five suggested strokes; another valid handwriting style may use a different route.</p></section>
+
+<section id="sources"><h2>8. Official provider documentation</h2><ul>
+<li><a href="https://ai.google.dev/gemini-api/docs/api-key">Gemini keys</a>, <a href="https://ai.google.dev/gemini-api/docs/models">models</a>, <a href="https://ai.google.dev/gemini-api/docs/speech-generation">speech generation</a>, and <a href="https://ai.google.dev/gemini-api/docs/pricing">pricing</a>.</li>
+<li><a href="https://platform.openai.com/docs/guides/images-vision">OpenAI vision</a> and <a href="https://platform.openai.com/docs/guides/text-to-speech">speech</a>.</li>
+<li><a href="https://docs.anthropic.com/en/docs/build-with-claude/vision">Claude vision</a>.</li>
+<li><a href="https://elevenlabs.io/docs/overview/models">ElevenLabs models and language support</a>.</li>
+<li><a href="https://docs.ollama.com/capabilities/vision">Ollama vision</a> and <a href="https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html">vLLM compatibility</a>.</li>
+<li><a href="https://cloud.google.com/text-to-speech/docs">Google Cloud TTS</a> and <a href="https://learn.microsoft.com/azure/ai-services/speech-service/text-to-speech">Azure speech</a>.</li>
+</ul><p>Provider model IDs, voices, permissions, language coverage, quotas, and prices can change. Check the current provider information and audition Malayalam. Bhaasa’s adapter tests use fixtures; they do not establish every account’s live access or linguistic accuracy.</p></section>
+</main></body></html>

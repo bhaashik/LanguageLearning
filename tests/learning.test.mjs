@@ -17,7 +17,7 @@ test('the curriculum has unique, resolvable content and meaningful lesson quizze
   }
 });
 test('reference covers both common and learned vowels plus the traditional consonant groups',()=>{
-  assert.equal(vowels.length,16);assert.equal(consonants.length,36);assert.equal(signs.length,14);assert.equal(chillus.length,6);assert.equal(conjuncts.length,12);
+  assert.equal(vowels.length,16);assert.equal(consonants.length,36);assert.equal(signs.length,14);assert.equal(chillus.length,6);assert.equal(conjuncts.length,32);
   assert.notEqual(vowels.find(i=>i.ml==='എ').roman,vowels.find(i=>i.ml==='ഏ').roman);
   assert.notEqual(consonants.find(i=>i.ml==='ല').ipa,consonants.find(i=>i.ml==='ള').ipa);
   assert.notEqual(consonants.find(i=>i.ml==='ള').ipa,consonants.find(i=>i.ml==='ഴ').ipa);

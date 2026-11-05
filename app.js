@@ -1,4 +1,4 @@
-import {vowels, consonants, signs, chillus, conjuncts, scriptItems, words, phrases, grammarItems, phoneticsItems, soundTopics, sections, lessons, allItems, byId} from './content.js';
+import {vowels, consonants, signs, chillus, conjuncts, scriptItems, writingItems, syllableBases,syllablePatterns,syllableForms, words, phrases, grammarItems, phoneticsItems, soundTopics, sections, lessons, allItems, byId} from './content.js';
 import {STORAGE_KEY, LEGACY_STORAGE_KEY, emptyProgress, validateProgress, recordAnswer, dueItems, shuffle, answerFor, choicesFor, finishLesson, ensureSession, startSession, sectionScores, updateWriting,recordTrace,recordHandwritingRecognition} from './learning.js';
 import {glossLegend} from './linguistics.js';
 import {AudioLibrary} from './audio.js';
@@ -19,7 +19,8 @@ catch { storageNotice='Saved progress could not be read. You can still learn; ex
 progress=ensureSession(progress);
 const resumed=progress.ui;
 let activeScript=resumed?.activeScript||'Vowels';
-if(!['Vowels','Consonants','Vowel signs','Chillus','Conjuncts'].includes(activeScript))activeScript='Vowels';
+if(!['Vowels','Consonants','Vowel signs','Chillus','Conjuncts','Syllables'].includes(activeScript))activeScript='Vowels';
+let syllableBase=syllableBases.some(b=>b.id===resumed?.syllableBase)?resumed.syllableBase:'lab-4',syllablePattern=syllablePatterns.some(p=>p.id===resumed?.syllablePattern)?resumed.syllablePattern:'aa';
 let wordGroup=resumed?.wordGroup||'All words';
 let search=resumed?.search||'';
 let studyIndex=resumed?.studyIndex||0;
@@ -33,7 +34,7 @@ let installPrompt=null;
 let traceCleanup=()=>{};
 const audioTargets={...byId};
 for(const l of lessons)audioTargets[`lesson-${l.id}`]={id:`lesson-${l.id}`,kind:'lesson',section:l.items[0].section,title:l.title,roman:l.title,ml:l.items.map(i=>i.ml).join(' … ')};
-for(const s of sections)audioTargets[`section-${s.id}`]={id:`section-${s.id}`,kind:'section',section:s.id,title:s.title,roman:s.title,ml:allItems.filter(i=>i.section===s.id).map(i=>i.ml).join(' … ')};
+for(const s of sections)audioTargets[`section-${s.id}`]={id:`section-${s.id}`,kind:'section',section:s.id,title:s.title,roman:s.title,ml:allItems.filter(i=>i.section===s.id&&i.kind!=='syllable').map(i=>i.ml).join(' … ')};
 let audioTargetId=Object.keys(byId)[0];
 const audio=new AudioLibrary(toast);
 const icons={
@@ -66,7 +67,7 @@ function restoreQuiz(q){
   return {...q,items,pool,history,score:history.filter(h=>h.correct).length,lessonId:lessonIds.has(q.lessonId)?q.lessonId:null};
 }
 if(route()==='review'&&(!initialRoute||initialRoute===resumed?.route))quiz=restoreQuiz(resumed?.quiz);
-function savePosition(){progress=ensureSession(progress);progress={...progress,session:{...progress.session,lastAt:Date.now()},ui:{route:route(),studyIndex,activeScript,wordGroup,search,quiz:packQuiz()}};save();}
+function savePosition(){progress=ensureSession(progress);progress={...progress,session:{...progress.session,lastAt:Date.now()},ui:{route:route(),studyIndex,activeScript,syllableBase,syllablePattern,wordGroup,search,quiz:packQuiz()}};save();}
 function completed(id) {return (progress.lessons[id]||0)>=0.8;}
 function due() {return dueItems(progress,allItems);}
 function nextLesson() {return lessons.find(l=>!completed(l.id))||lessons[0];}
@@ -121,13 +122,19 @@ function dashboard() {
     <section class="letter-day"><span class="eyebrow">A LETTER TO GET TO KNOW</span>${ml('മ','featured-letter')}<div><strong>ma</strong><span>/m/ · A labial consonant</span></div><p>Two lips together.<br>A familiar sound, a new shape.</p><a href="#item/lab-4" class="text-link">Meet this letter ${icon('arrow')}</a></section>
     <section class="tip-card"><span class="tip-symbol">✳</span><h3>Let the letters sink in.</h3><p>You don’t need to remember everything at once. A few minutes of practice is a good beginning.</p></section></aside></div>`;
 }
-const scriptGroups={'Vowels':vowels,'Consonants':consonants,'Vowel signs':signs,'Chillus':chillus,'Conjuncts':conjuncts};
+const scriptGroups={'Vowels':vowels,'Consonants':consonants,'Vowel signs':signs,'Chillus':chillus,'Conjuncts':conjuncts,'Syllables':[]};
+function syllableBuilder(){
+  const forms=syllableForms.filter(f=>f.baseId===syllableBase),selected=byId[forms.find(f=>f.patternId===syllablePattern).itemId];
+  return `<section class="panel syllable-builder"><div class="section-title"><h2>Build a syllable. Trace its curves.</h2><span>${syllableForms.length} combinations</span></div><p class="section-note">Choose a consonant or conjunct and a vowel pattern. Each full form opens the same tracing pad, stroke demonstration, and optional ink-only OCR check. Some combinations are learned or uncommon; a constructed syllable is not necessarily a word.</p><div class="form-grid"><label>Consonant or conjunct<select id="syllable-base">${['letter','conjunct'].map(kind=>`<optgroup label="${kind==='letter'?'Consonants':'Conjuncts'}">${syllableBases.filter(b=>b.kind===kind).map(b=>`<option value="${b.id}" ${b.id===syllableBase?'selected':''}>${esc(b.ml)} · ${esc(b.roman)}</option>`).join('')}</optgroup>`).join('')}</select></label><label>Vowel pattern<select id="syllable-pattern">${syllablePatterns.map(p=>`<option value="${p.id}" ${p.id===syllablePattern?'selected':''}>${esc(p.label)}</option>`).join('')}</select></label></div><div class="syllable-preview">${ml(selected.ml)}<strong>${esc(selected.roman)}</strong><span>/${esc(selected.ipa)}/</span><a class="button primary" id="open-syllable" href="#item/${selected.id}">Trace & recognize ${esc(selected.ml)} ${icon('arrow')}</a></div>${linguistic(selected)}${exampleFor(selected)}<div class="section-title"><h2>All patterns for this base</h2><span>Choose any form</span></div><div class="alphabet-grid">${forms.map(f=>{const item=byId[f.itemId];return `<a class="letter-tile" data-syllable="${f.patternId}" href="#item/${item.id}">${ml(item.ml)}<strong>${esc(item.roman)}</strong><small>Trace & recognize</small></a>`;}).join('')}</div></section>`;
+}
 function scriptPage() {
+  const tabs=`<div class="tabs" role="group" aria-label="Script category">${Object.keys(scriptGroups).map(g=>`<button class="tab ${g===activeScript?'selected':''}" data-script="${g}" aria-pressed="${g===activeScript}">${g}${g!=='Syllables'?`<span>${scriptGroups[g].length}</span>`:''}</button>`).join('')}</div>`;
+  if(activeScript==='Syllables')return `${pageHeading('JOIN SOUNDS AND SHAPES','Syllables, one curve at a time.','Practise consonants, conjuncts, and vowel marks together.')}${tabs}${syllableBuilder()}`;
   const descriptions={Vowels:'Independent vowels stand on their own. Compare short vowels with their longer partners.',Consonants:'Consonants normally carry an inherent a. The groups describe where and how you make the sound.','Vowel signs':'See how vowel signs change ക (ka). The full syllable is shown so combining signs stay readable.',Chillus:'Consonant endings without an inherent vowel. Compare ൻ (n) with ന (na).',Conjuncts:'Consonants join together. A doubled consonant is held longer, and can change a word’s meaning.'};
   const items=scriptGroups[activeScript];
   return `${pageHeading('THE BUILDING BLOCKS','A script full of curves.','Explore the letters. Notice the sounds. Make the shapes your own.')}
-  <div class="tabs" role="group" aria-label="Script category">${Object.keys(scriptGroups).map(g=>`<button class="tab ${g===activeScript?'selected':''}" data-script="${g}" aria-pressed="${g===activeScript}">${g}<span>${scriptGroups[g].length}</span></button>`).join('')}</div><p class="section-note">${descriptions[activeScript]}</p>
-  ${[...new Set(items.map(i=>i.group))].map(group=>`<section class="script-section"><div class="section-title"><h2>${group}</h2><span>Choose a card to explore & write</span></div><div class="alphabet-grid">${items.filter(i=>i.group===group).map(item=>`<article class="letter-tile"><a class="letter-main" href="#item/${item.id}">${ml(item.ml)}<strong>${item.roman}</strong><small>/${esc(item.ipa)}/</small></a>${item.note.startsWith('Rare')?'<span class="rare">Rare</span>':''}${linguistic(item)}${exampleFor(item)}</article>`).join('')}</div></section>`).join('')}
+  ${tabs}<p class="section-note">${descriptions[activeScript]} Open a card to trace its strokes and check handwriting with OCR.</p>
+  ${[...new Set(items.map(i=>i.group))].map(group=>`<section class="script-section"><div class="section-title"><h2>${group}</h2><span>Choose a card to explore & write</span></div><div class="alphabet-grid">${items.filter(i=>i.group===group).map(item=>`<article class="letter-tile"><a class="letter-main" href="#item/${item.id}">${ml(item.ml)}<strong>${item.roman}</strong><small>/${esc(item.ipa)}/</small><span class="trace-card-action">Trace &amp; OCR →</span></a>${item.note.startsWith('Rare')?'<span class="rare">Rare</span>':''}${linguistic(item)}${exampleFor(item)}</article>`).join('')}</div></section>`).join('')}
   <div class="notice">Roman spellings and IPA are guides, not recordings. Speech synthesis can misread isolated letters. Use native-speaker audio to refine fine sound distinctions.</div>`;
 }
 function wordsPage() {
@@ -156,7 +163,7 @@ function lessonPage(id) {
 }
 function itemPage(id) {
   const item=byId[id];if(!item)return notFound();
-  const isWord=!['letter','sign','chillu','conjunct'].includes(item.kind);
+  const isWord=!['letter','sign','chillu','conjunct','syllable'].includes(item.kind);
   return `<a class="back-link" href="#${isWord?'words':'script'}">${icon('back')} ${isWord?'Words & phrases':'Writing system'}</a>${pageHeading(item.group.toUpperCase(),isWord?'Look. Read. Remember.':'Get a feel for the letter.','Take your time. Learning a new shape starts with noticing it.')}
   <div class="item-layout"><section class="detail-card">${ml(item.ml,item.kind==='phrase'?'phrase':'')}<div class="study-roman">${item.roman}</div>${isWord?`<h2>${item.meaning}</h2>`:`<p class="ipa">/${esc(item.ipa)}/</p>`}<p>${item.note||'Look at the curves and the relative size of each part. The Roman spelling helps you recognize the written form.'}</p>${playButton(item)}<a class="text-link audio-link" href="#audio/${item.id}">Choose a voice, generate, or record</a><p id="voice-note" class="audio-note">${voiceNote()}</p>${linguistic(item,true)}${exampleFor(item)}</section>
   ${tracingPanel(item,!isWord,progress.writing?.[item.id])}</div>`;
@@ -207,7 +214,7 @@ function aboutPage() {
   <div class="about-content"><section><h2>Built around your guides</h2><p>The lessons adapt the two PDFs supplied for this project: <strong>Malayalam Writing System</strong> and <strong>Malayalam in Everyday Life</strong>. The script reference follows the first guide; vocabulary, phrases, and grammar follow the second. The full documents are not bundled in the app.</p><p>Roman spellings are scholarly transliterations rather than English sound-alikes. IPA gives a broad approximation. Pronunciation, usage, and spelling conventions can vary by region and register. This first curriculum would benefit from a native Malayalam teacher’s review.</p></section>
   <section><h2>A note about sound and glosses</h2><p id="voice-note">${voiceNote()}</p><p>Choose a voice in Voices & recordings. Listen reuses a saved file for that exact provider/model/voice and content text, or uses the selected device/service voice. Device speech may require internet and cannot be captured to a file through Web Speech. Neither guide contains recordings; microphone, file imports, and connected speech services can add them.</p><p>IPA for words and sentences is a broad, spelling-based teaching approximation, not a verified transcription of natural speech. Extended Devanagari is a comparative script correspondence using ऎ, ऒ, ऴ, and ऱ. It does not equate Malayalam sounds with ordinary Hindi pronunciation. Glosses segment grammatical constructions where useful; lexical words can be unsplit, and letters are sound units rather than morphemes.</p><p>${glossLegend}</p></section>
   <section><h2>Take it offline</h2><p id="offline-detail">${offlineReady?'The app and lessons have been saved for offline use on this device.':'The app saves its lesson files for offline use when served over HTTPS or localhost. Allow the first visit to finish loading before going offline.'}</p><p>On a supported browser, use “Install app” or “Add to Home Screen”. On iPhone and iPad, open the site in Safari and choose Share → Add to Home Screen. Offline storage can be removed by your browser; keep progress and audio backups.</p><button id="install-button" class="button primary" data-action="install" ${installPrompt?'':'hidden'}>Install Bhaasa ${icon('download')}</button></section>
-  <section><h2>A notebook on your device</h2><p>Your progress stays in this browser’s local storage. There is no sign-in or analytics. Using device speech may involve your browser’s speech provider. Export or import your progress on the Your progress page.</p></section></div>`;
+  <section><h2>OCR &amp; speech setup</h2><p>Connect Gemini, OpenAI, Claude, local vision engines, speech models, or human recordings. The setup guide explains model IDs, gateway addresses, keys, saved audio, and common errors.</p><p><a class="button secondary" href="./docs/PROVIDERS.html" target="_blank" rel="noopener">Open OCR &amp; speech setup guide</a></p></section><section><h2>A notebook on your device</h2><p>Your progress stays in this browser’s local storage. There is no sign-in or analytics. Using device speech may involve your browser’s speech provider. Export or import your progress on the Your progress page.</p></section></div>`;
 }
 function notFound() {return `${pageHeading('A SMALL DETOUR','This page isn’t here.','Head back to your learning path to pick up where you left off.')}<a class="button primary" href="#learn">Back to learning ${icon('arrow')}</a>`;}
 
@@ -258,7 +265,7 @@ async function speak(id) {
 let canvasActions={};
 function setupCanvas(item) {
   const history=()=>{const w=progress.writing?.[item.id];const el=$('#writing-history');if(el&&w)el.textContent=`${w.attempts} tracing checks · best fit ${Math.round(w.bestFit*100)}%. OCR: ${w.ocr.correct}/${w.ocr.judged} readable results matched; ${w.ocr.requests-w.ocr.judged} uncertain.`;};
-  const pad=createTracingPad({item,script:scriptItems.some(i=>i.id===item.id),saved:progress.writing?.[item.id],notify:toast,
+  const pad=createTracingPad({item,script:writingItems.some(i=>i.id===item.id),saved:progress.writing?.[item.id],notify:toast,
     onDraft:(draft,draftId)=>{progress=updateWriting(progress,item.id,{draft,draftId});save();},
     onCheck:result=>{progress=recordTrace(progress,item.id,result);save();history();},
     onRecognition:result=>{progress=recordHandwritingRecognition(progress,item.id,result);save();history();},
@@ -361,6 +368,8 @@ $('#app').addEventListener('click',async e=>{
 });
 $('#app').addEventListener('input',e=>{if(e.target.id==='word-search'){search=e.target.value;$('#word-results').innerHTML=wordResults();savePosition();}});
 $('#app').addEventListener('change',async e=>{
+  if(e.target.id==='syllable-base'&&syllableBases.some(b=>b.id===e.target.value)){syllableBase=e.target.value;render();return;}
+  if(e.target.id==='syllable-pattern'&&syllablePatterns.some(p=>p.id===e.target.value)){syllablePattern=e.target.value;render();return;}
   if(e.target.id==='word-group'){wordGroup=e.target.value;$('#word-results').innerHTML=wordResults();savePosition();}
   try{
     if(e.target.id==='openai-model'){audio.openaiPreset.model=e.target.value;audio.openaiPreset.voice=defaultOpenAIVoice(e.target.value);audio.openaiPreset.status='';render();}

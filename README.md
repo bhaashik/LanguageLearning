@@ -15,11 +15,11 @@ The development server uses port 4173 (`PORT` overrides it). Any static HTTP ser
 
 ## Learning workflow
 
-- Ten guided lessons and an unrestricted script reference: 16 vowels, 36 consonants, 14 vowel-sign examples, 6 chillus, and 12 conjuncts.
+- Ten guided lessons and an unrestricted script reference: 16 vowels, 36 consonants, 14 vowel-sign examples, 6 chillus, and 32 conjuncts. The Syllables builder covers 952 base/pattern combinations, including vowel-marked conjuncts.
 - Script examples use actual words for common symbols. Three rare learned vocalic vowels and rare chillu ൿ have explicit teaching examples/alternative-spelling notes rather than invented everyday words.
 - 66 everyday words, 10 phrases, additional sound-example vocabulary, six grammar patterns, and a six-part **Sounds of Malayalam (Phonetics & Phonology)** section.
 - Roman spelling, broad IPA, extended Devanagari, and simplified morpheme glosses are available in expandable details on learning cards, script examples, grammar examples, recap, and answer feedback. Letters/syllables are labelled as sound units, not morphemes. Joined word forms can differ from their segmented analysis.
-- Curved tracing for all 84 script entries, with numbered starts, direction arrows, an animated demonstration, guide hiding, undo/clear, and pen/finger/mouse input. Offline checks cover guide fit, separate marks, smoothness, pen lifts, and following the suggested path. Optional handwriting recognition supports OpenAI, Gemini, Claude, local compatible vision models, and custom OCR endpoints; generated practice paths are not teacher-verified Malayalam stroke order.
+- Curved tracing for all 104 reference entries and 871 additional syllable forms, with numbered starts, direction arrows, an animated demonstration, guide hiding, undo/clear, and pen/finger/mouse input. Offline checks cover guide fit, separate marks, smoothness, pen lifts, and following the suggested path. Optional handwriting recognition supports OpenAI, Gemini, Claude, local compatible vision models, and custom OCR endpoints; generated practice paths are not teacher-verified Malayalam stroke order.
 - Recognition, grammar, and sound-pattern exercises. Every exercise ends with its complete answer key, including the learner’s answers and explanatory detail.
 - Separate colored accuracy bars for writing-system recognition, phonetics, words, phrases, and grammar, both **this session** and **overall**. Scores measure answered questions, not proficiency or freehand writing quality.
 - Automatic return to the last page/card or unfinished exercise when opening the base address, plus a brief recap. An explicit link to any section always works. Already answered quiz questions do not score twice after reload.
@@ -28,6 +28,8 @@ The development server uses port 4173 (`PORT` overrides it). Any static HTTP ser
 - Progress JSON backup/import, including migration from the original Aksharam progress format. Progress is local to this origin/browser, not synchronized across devices.
 
 Content details and limitations are in [docs/CONTENT.md](docs/CONTENT.md). Word/sentence IPA is a broad **spelling-based approximation**, not a verified narrow transcription of natural speech. Extended Devanagari is comparative script correspondence, not ordinary Hindi pronunciation. A Malayalam teacher’s review and native-speaker recordings are still needed for a finished curriculum.
+
+The [OCR & speech setup guide](docs/PROVIDERS.html) covers OpenAI, Gemini, Claude, ElevenLabs, local vision engines, and custom OCR/TTS adapters, with environment examples, field mappings, recording/import workflows, and troubleshooting. Open it from About, the tracing settings, or Voices & recordings. The readable/printable HTML document is included in the static build and cached for offline reading.
 
 ## Curved tracing and handwriting recognition
 
@@ -45,7 +47,9 @@ Touchscreens work through Pointer Events: draw with a finger or stylus on the pa
 
 If **Check my tracing** is greyed out, read the status directly below the buttons. Draw a full-size symbol over the pale guide and release your finger, pen, or mouse button. A tap, short line, or the animated demonstration alone does not count as a completed drawing. If the practice guide could not load, use **Retry loading practice guide**; retrying keeps your ink. This check works without an API key or OCR gateway, including with **Off · tracing only** selected.
 
-The bundled guides are centerlines derived from **Noto Sans Malayalam Regular**: 65 have one suggested stroke, 16 have two, and three have three because marks are disconnected. A connected route can retrace a short segment. These are font-based practice suggestions, not a researched account of conventional Malayalam handwriting. **A Malayalam teacher should verify or replace them before they are described as correct stroke order.** Detached signs are kept separate rather than forcing every symbol into one or two strokes.
+The bundled guides are centerlines derived from **Noto Sans Malayalam Regular**. The original 84 guides are preserved; the expanded set of 975 guides has 77 one-stroke, 591 two-stroke, 247 three-stroke, 51 four-stroke, and 9 five-stroke suggestions. A connected route can retrace a short segment. These are font-based practice suggestions, not a researched account of conventional Malayalam handwriting. **A Malayalam teacher should verify or replace them before they are described as correct stroke order.** Detached signs are kept separate rather than forcing every symbol into one or two strokes.
+
+Use **Writing system → Conjuncts** for clusters such as മ്മ, ണ്ണ, ക്ര, and പ്ര. **Writing system → Syllables** combines the 36 consonants and 32 conjuncts with the 14 vowel/sign patterns. Its preview and all-pattern grid open the normal tracing/OCR pad. Existing forms reuse their original IDs; new forms have independent drafts, scores, recordings, and backups. The builder restores its selected base and pattern after reopening. Constructed forms are sound units, not necessarily vocabulary; example words are shown only where the course supplies them.
 
 Under **Teacher guides, OCR connection & exports**, export your strokes as Bhaasa JSON, or import an instructor's stroke-guide JSON for the same symbol. Imported paths are labelled custom guides and can be replaced with **Use font guide**. Export/import does not establish that a guide is linguistically correct. Custom guides and current drawing drafts are kept in progress backups.
 
@@ -114,6 +118,8 @@ Open **Voices & recordings**. Available options are:
 2. **Human audio.** Record with a microphone or import an audio file for any symbol, sound, word, phrase, lesson, or section. “Stop & save” commits the microphone recording; the maximum recording is two minutes. Native mobile/browser permissions still apply. Individual imports are limited to 20 MB.
 3. **Speech services/models.** OpenAI is the preferred provider; the OpenAI quick-setup panel supplies current model/voice choices and a connection check. Add a named profile with provider, speech-model ID, voice ID, optional gender label, and a gateway URL. The gateway keeps provider credentials on its server. “Discover service models” reads the gateway’s configured model list. A text-only LLM is not automatically a speech model; provider subscriptions, language support, and voice quality must be checked independently.
 
+The native speech gateway also supports Gemini audio generation. Set `BHAASA_TTS_PROVIDER=gemini`, `BHAASA_TTS_API_KEY` to your Google API key, `BHAASA_TTS_MODELS=gemini-2.5-flash-preview-tts`, and `BHAASA_TTS_VOICE=Kore`. Restart, then create a speech profile with provider `gemini`, that exact model/voice, and your `/api/speech` gateway. Completed 24 kHz mono PCM is returned as WAV; no optional Realtime dependency is needed. OCR and speech keys/settings are independent. Choose another available Gemini speech model explicitly if needed; the ordinary vision model is not a TTS model. See the setup guide for ElevenLabs, local/custom services, importing externally generated audio, and multiple gateways.
+
 “Save the first time” is enabled by default for service audio. Later plays reuse the stored clip without another generation request. Disable it for temporary generation. “Generate & replace clip” explicitly regenerates and overwrites the current identity. Device speech and provider models may need internet; saved files do not.
 
 Each stored clip has a language, section, level, stable content ID, provider, model, voice, source, exact text, timestamps, and revision. Changing a model or voice keeps a separate collection. Renaming a profile does not invalidate its recordings. Audio for changed content text is not reused automatically.
@@ -129,7 +135,7 @@ Export batches are limited to 100 MB; import accepts Bhaasa’s own ZIP STORE ar
 
 ### Optional local speech gateway
 
-`scripts/serve.mjs` includes a companion at `/api/speech`. OpenAI is the default provider, with `gpt-realtime-2.1-mini` and `marin`. Generation stays disabled until an API credential is configured. Install the optional server-only transport first:
+`scripts/serve.mjs` includes a companion at `/api/speech`. OpenAI is the default provider, with `gpt-realtime-2.1-mini` and `marin`. Generation stays disabled until an API credential is configured. For OpenAI Realtime, install the optional server-only transport first:
 
 ```sh
 npm run speech:install
@@ -141,11 +147,11 @@ In the cloud environment draft, `BHAASA_TTS_API_KEY` is declared as a secret sen
 
 | Variable | Purpose |
 | --- | --- |
-| `BHAASA_TTS_PROVIDER` | `openai`, `elevenlabs`, or `custom` |
+| `BHAASA_TTS_PROVIDER` | `openai`, `gemini`, `elevenlabs`, or `custom` |
 | `BHAASA_TTS_API_KEY` | Provider credential; read only by the companion server |
 | `BHAASA_TTS_MODELS` | Comma-separated allowlist for discovery/validation; defaults to `gpt-realtime-2.1-mini` |
 | `BHAASA_TTS_VOICE` | Default `marin` for OpenAI; the UI can choose other supported voices |
-| `BHAASA_TTS_URL` | REST provider URL override; required for `custom`; use HTTPS or local loopback. The OpenAI Realtime adapter always uses `api.openai.com`. |
+| `BHAASA_TTS_URL` | REST provider URL override for legacy OpenAI/ElevenLabs; required for `custom`; use HTTPS or local loopback. OpenAI Realtime and Gemini use their fixed provider endpoints. |
 | `BHAASA_TTS_ALLOWED_ORIGIN` | Optional exact browser origin for an app hosted elsewhere; defaults to the companion’s own origin |
 
 OpenAI Realtime models use the server-side WebSocket adapter at `/v1/realtime`. Each reading creates one isolated session, requests an exact Malayalam reading, collects PCM output, closes the connection on completion/error/timeout, and returns 24 kHz mono WAV. The gateway uses the inherited HTTPS proxy and CA trust. API keys never enter browser JavaScript. Generated speech is AI audio and must be auditioned; exact reproduction of symbols, questions, and phonetic contrasts is not guaranteed by a generative model.
@@ -159,7 +165,7 @@ API definitions checked from OpenAI's official generated SDK:
 - [Speech API and deprecation notes](https://github.com/openai/openai-node/blob/master/src/resources/audio/speech.ts)
 - [Realtime models, events, audio formats, and voice options](https://github.com/openai/openai-node/blob/master/src/resources/realtime/realtime.ts)
 
-The ElevenLabs adapter remains available with model `eleven_multilingual_v2`. For a local speech engine, use `custom` with its HTTP loopback endpoint and configured model list. These choices do not guarantee Malayalam pronunciation quality or current subscription access.
+The ElevenLabs adapter remains available; explicitly select a model that supports Malayalam. Its legacy default `eleven_multilingual_v2` is not a Malayalam recommendation. For a local speech engine, use `custom` with its HTTP loopback adapter endpoint and configured model list. These choices do not guarantee Malayalam pronunciation quality or current subscription access.
 In managed environments using an HTTPS proxy, Node 24 can honor the inherited proxy with `NODE_USE_ENV_PROXY=1 npm run dev`. Keep proxy routing and TLS verification enabled. There is no provider credential in the current app or static build, and live paid-provider synthesis has not been validated.
 
 A separately hosted compatible gateway implements:
@@ -193,6 +199,7 @@ python3 tests/browser.py
 python3 tests/features.py
 python3 tests/tracing.py
 python3 tests/ocr-providers.py
+python3 tests/syllables.py
 ```
 
 Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, microphone capture using Chromium’s test microphone, native touch tracing, and OCR provider switching/caching/cancellation. The tracing suite also needs Pillow for inspecting the ink-only OCR image. OCR uses fixture responses in tests; no paid recognition call is made. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.

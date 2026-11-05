@@ -1,11 +1,11 @@
 // Optional local companion. Never copied into the static Pages build.
 import {OPENAI_MODELS,OPENAI_DEFAULT_MODEL,OPENAI_DEFAULT_VOICE,openAIVoices,isRealtimeModel,openAIVoice,MALAYALAM_READING_INSTRUCTIONS} from '../speech-presets.js';
-import {generateRealtime} from '../gateway/openai-realtime.mjs';
+import {generateRealtime,pcmToWav} from '../gateway/openai-realtime.mjs';
 export function speechConfig(env=process.env){
   const provider=env.BHAASA_TTS_PROVIDER||'openai';
   const ready=Boolean(env.BHAASA_TTS_API_KEY)||(provider==='custom'&&Boolean(env.BHAASA_TTS_URL));
-  const models=(env.BHAASA_TTS_MODELS||env.BHAASA_TTS_MODEL||(provider==='openai'?OPENAI_DEFAULT_MODEL:provider==='elevenlabs'?'eleven_multilingual_v2':'')).split(',').map(s=>s.trim()).filter(Boolean);
-  return {provider,ready,models,voice:env.BHAASA_TTS_VOICE||(provider==='openai'?OPENAI_DEFAULT_VOICE:'')};
+  const models=(env.BHAASA_TTS_MODELS||env.BHAASA_TTS_MODEL||(provider==='openai'?OPENAI_DEFAULT_MODEL:provider==='gemini'?'gemini-2.5-flash-preview-tts':provider==='elevenlabs'?'eleven_multilingual_v2':'')).split(',').map(s=>s.trim()).filter(Boolean);
+  return {provider,ready,models,voice:env.BHAASA_TTS_VOICE||(provider==='openai'?OPENAI_DEFAULT_VOICE:provider==='gemini'?'Kore':'')};
 }
 export async function handleSpeech(req,res,url,{env=process.env,fetcher=fetch,realtime=generateRealtime}={}){
   if(!['/api/speech','/api/speech/models'].includes(url.pathname))return false;
@@ -34,6 +34,9 @@ export async function handleSpeech(req,res,url,{env=process.env,fetcher=fetch,re
     if(cfg.provider==='openai'){
       endpoint=env.BHAASA_TTS_URL||'https://api.openai.com/v1/audio/speech';remoteHeaders.Authorization=`Bearer ${env.BHAASA_TTS_API_KEY}`;
       body={model:data.model,input:data.input,voice:openAIVoice(data.voice),response_format:'mp3',speed:.85,...(data.model.startsWith('gpt-4o-mini-tts')?{instructions:MALAYALAM_READING_INSTRUCTIONS}:{})};
+    }else if(cfg.provider==='gemini'){
+      endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(data.model.replace(/^models\//,''))}:generateContent`;remoteHeaders['x-goog-api-key']=env.BHAASA_TTS_API_KEY;
+      body={contents:[{parts:[{text:`Read the following Malayalam text aloud, exactly as written, without adding commentary. This is language-learning audio. Text:\n${data.input}`}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:data.voice}}}}};
     }else if(cfg.provider==='elevenlabs'){
       endpoint=env.BHAASA_TTS_URL||`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(data.voice)}`;remoteHeaders['xi-api-key']=env.BHAASA_TTS_API_KEY;
       body={text:data.input,model_id:data.model};
@@ -44,6 +47,17 @@ export async function handleSpeech(req,res,url,{env=process.env,fetcher=fetch,re
     if(remote.username||remote.password||!(remote.protocol==='https:'||(remote.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(remote.hostname))))throw Error('Use a secure configured provider URL');
     const result=await fetcher(remote,{method:'POST',headers:remoteHeaders,body:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(40000)});
     if(!result.ok){res.writeHead(result.status,{...headers,'Content-Type':'text/plain'}).end('Speech provider rejected the request. Check provider configuration.');return true;}
+    if(cfg.provider==='gemini'){
+      const response=await result.json(),candidate=response.candidates?.[0];
+      if(candidate?.finishReason!=='STOP'||response.promptFeedback?.blockReason)throw Error('Incomplete Gemini audio');
+      const parts=candidate.content?.parts?.filter(p=>p.inlineData)||[];if(!parts.length)throw Error('No Gemini audio');
+      let size=0;const chunks=parts.map(p=>{
+        const {mimeType,data}=p.inlineData;
+        if(typeof mimeType!=='string'||!/^audio\/(?:L16|pcm)(?:;|$)/i.test(mimeType)||!/(?:^|;)\s*rate=24000(?:;|$)/i.test(mimeType)||typeof data!=='string'||!data.length||!/^[A-Za-z0-9+/]+=*$/.test(data))throw Error('Unsupported Gemini PCM');
+        const pcm=Buffer.from(data,'base64');size+=pcm.length;if(size>20*1024*1024-44)throw Error('Audio exceeds file limit');return pcm;
+      });
+      const wav=pcmToWav(Buffer.concat(chunks));res.writeHead(200,{...headers,'Content-Type':'audio/wav'}).end(wav);return true;
+    }
     const type=result.headers.get('content-type');if(!type?.startsWith('audio/'))throw Error('Provider did not return audio');
     if(Number(result.headers.get('content-length'))>20*1024*1024)throw Error('Audio exceeds file limit');
     const audio=await result.arrayBuffer();if(audio.byteLength>20*1024*1024)throw Error('Audio exceeds file limit');

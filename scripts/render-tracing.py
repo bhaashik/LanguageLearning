@@ -12,8 +12,11 @@ import subprocess
 from playwright.sync_api import sync_playwright
 
 ROOT=Path(__file__).resolve().parents[1]
-parser=argparse.ArgumentParser();parser.add_argument('output',type=Path);args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
-items=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{scriptItems}from './content.js';console.log(JSON.stringify(scriptItems.map(({id,ml})=>({id,ml}))));"],cwd=ROOT))
+parser=argparse.ArgumentParser();parser.add_argument('output',type=Path);parser.add_argument('--only-new',action='store_true');args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+items=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{writingItems}from './content.js';console.log(JSON.stringify(writingItems.map(({id,ml})=>({id,ml}))));"],cwd=ROOT))
+if args.only_new:
+    existing=json.loads((ROOT/'data/tracing-guides.json').read_text())['guides']
+    items=[item for item in items if item['id'] not in existing]
 with sync_playwright() as p:
     options={'headless':True,'args':['--no-sandbox']};executable=os.environ.get('BROWSER_EXECUTABLE') or shutil.which('chromium')
     if executable:options['executable_path']=executable

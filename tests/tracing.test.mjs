@@ -2,22 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {Readable} from 'node:stream';
-import {scriptItems,allItems,lessons} from '../content.js';
+import {scriptItems,writingItems,allItems,lessons} from '../content.js';
 import {fitGuide,evaluateTrace,resample,pathLength,canonicalMalayalam,recognitionMatches} from '../tracing.js';
 import {emptyProgress,updateWriting,recordTrace,recordHandwritingRecognition,validateProgress,startSession} from '../learning.js';
 import {handleOCR} from '../scripts/ocr.mjs';
 const data=JSON.parse(await readFile(new URL('../data/tracing-guides.json',import.meta.url),'utf8'));
 
-test('all 84 script entries have locally usable, explicitly unreviewed stroke guides',()=>{
-  assert.equal(Object.keys(data.guides).length,scriptItems.length);
+test('all reference and syllable entries have locally usable, explicitly unreviewed stroke guides',()=>{
+  assert.equal(Object.keys(data.guides).length,writingItems.length);
+  const originalIds=new Set(scriptItems.filter(i=>!i.id.startsWith('cj-')||Number(i.id.slice(3))<12).map(i=>i.id));
   let compact=0;
-  for(const item of scriptItems){
+  for(const item of writingItems){
     const g=data.guides[item.id];assert.equal(g.ml,item.ml);assert.equal(g.reviewed,false);assert.equal(g.source,'font-derived practice guide');
-    assert.equal(g.paths.length,g.suggestedStrokes);if(g.paths.length<=2)compact++;
+    assert.equal(g.paths.length,g.suggestedStrokes);if(originalIds.has(item.id)&&g.paths.length<=2)compact++;
     const fitted=fitGuide(g);const result=evaluateTrace(fitted.paths,fitted);
     assert.equal(result.passed,true,item.id);assert.ok(result.fit>.99,item.id);assert.equal(result.pathOrder,true,item.id);
   }
-  assert.equal(compact,81,'disconnected components retain their pen lifts instead of forcing every glyph into two strokes');
+  assert.equal(compact,81,'the original 84 guides retain their disconnected components and pen lifts');
 });
 test('blank ink and a small dot cannot receive a tracing score',()=>{
   const g=fitGuide(data.guides['vel-0']);assert.equal(evaluateTrace([],g).assessable,false);

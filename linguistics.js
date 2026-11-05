@@ -35,7 +35,7 @@ const phraseParts={
 export function glossParts(item) {
   if(phraseParts[item.ml])return phraseParts[item.ml].map(([ml,roman,gloss])=>({ml,roman,gloss}));
   if(item.id.startsWith('verb-'))return [{ml:item.ml.slice(0,-1),roman:item.roman.slice(0,-2),gloss:item.meaning.replaceAll(' / ','.')},{ml:'ക',roman:'ka',gloss:'INF'}];
-  if(['letter','chillu','sign','conjunct'].includes(item.kind))return [{ml:item.ml,roman:item.roman,gloss:item.kind==='letter'?'LETTER':item.kind==='sign'?'SYLLABLE':item.kind.toUpperCase()}];
+  if(['letter','chillu','sign','conjunct','syllable'].includes(item.kind))return [{ml:item.ml,roman:item.roman,gloss:item.kind==='letter'?'LETTER':item.kind==='sign'?'SYLLABLE':item.kind.toUpperCase()}];
   const pronouns={'ഞാൻ':'1SG','നിങ്ങൾ':'2.POL/PL','ഇത്':'this','അത്':'that','വേണം':'need','ഇല്ല':'NEG.EXIST','അല്ല':'NEG.COP'};
   return [{ml:item.ml,roman:item.roman,gloss:pronouns[item.ml]||item.meaning.replaceAll(' / ','.').replaceAll(' ','.')}];
 }
@@ -44,8 +44,8 @@ export function enrich(item) {
   item.ipa ||= broadIPA(item.roman);
   item.ipaType=['letter','sign','chillu','conjunct'].includes(item.kind)?'sound reference':'broad spelling-based approximation';
   item.gloss=glossParts(item);
-  item.glossType=['letter','sign','chillu','conjunct'].includes(item.kind)?'sound unit (not a morpheme)':'simplified morpheme gloss';
-  item.section ||= ['letter','sign','chillu','conjunct'].includes(item.kind)?'script':item.kind==='phrase'?'phrases':item.kind==='grammar'?'grammar':item.kind==='phonetics'?'phonetics':'words';
+  item.glossType=['letter','sign','chillu','conjunct','syllable'].includes(item.kind)?'sound unit (not a morpheme)':'simplified morpheme gloss';
+  item.section ||= ['letter','sign','chillu','conjunct','syllable'].includes(item.kind)?'script':item.kind==='phrase'?'phrases':item.kind==='grammar'?'grammar':item.kind==='phonetics'?'phonetics':'words';
   return item;
 }
 
