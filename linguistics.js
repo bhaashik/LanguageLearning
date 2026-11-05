@@ -1,4 +1,5 @@
 // Comparative script correspondence, not a claim that Hindi has all Malayalam sounds.
+import {phoneticsFor} from './phonetics.js';
 const mlChars='അആഇഈഉഊഋൠഌൡഎഏഐഒഓഔകഖഗഘങചഛജഝഞടഠഡഢണതഥദധനപഫബഭമയരറലളഴവശഷസഹ';
 const dvChars=['अ','आ','इ','ई','उ','ऊ','ऋ','ॠ','ऌ','ॡ','ऎ','ए','ऐ','ऒ','ओ','औ','क','ख','ग','घ','ङ','च','छ','ज','झ','ञ','ट','ठ','ड','ढ','ण','त','थ','द','ध','न','प','फ','ब','भ','म','य','र','ऱ','ल','ळ','ऴ','व','श','ष','स','ह'];
 const devaMap=Object.fromEntries([...mlChars].map((c,i)=>[c,dvChars[i]]));
@@ -40,6 +41,7 @@ export function glossParts(item) {
   return [{ml:item.ml,roman:item.roman,gloss:pronouns[item.ml]||item.meaning.replaceAll(' / ','.').replaceAll(' ','.')}];
 }
 export function enrich(item) {
+  if(['letter','sign','chillu','conjunct','syllable'].includes(item.kind))item.phonetics=phoneticsFor(item.ml);
   item.devanagari=toDevanagari(item.ml);
   item.ipa ||= broadIPA(item.roman);
   item.ipaType=['letter','sign','chillu','conjunct'].includes(item.kind)?'sound reference':'broad spelling-based approximation';

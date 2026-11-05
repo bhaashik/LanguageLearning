@@ -39,6 +39,7 @@ export function validateProgress(value, validIds, lessonIds) {
     if(value.ui&&typeof value.ui==='object'&&typeof value.ui.route==='string'&&/^[a-z]+(?:\/[a-z0-9-]+)?$/.test(value.ui.route)&&value.ui.route.length<100){
       clean.ui={route:value.ui.route,studyIndex:Number.isInteger(value.ui.studyIndex)?Math.max(0,Math.min(value.ui.studyIndex,100)):0,activeScript:String(value.ui.activeScript||'Vowels').slice(0,30),wordGroup:String(value.ui.wordGroup||'All words').slice(0,40),search:String(value.ui.search||'').slice(0,200),quiz:value.ui.quiz&&typeof value.ui.quiz==='object'?value.ui.quiz:null};
       for(const key of ['syllableBase','syllablePattern'])if(typeof value.ui[key]==='string'&&/^[a-z0-9-]{1,40}$/.test(value.ui[key]))clean.ui[key]=value.ui[key];
+      if(['Vowels','Consonants','Vowel signs','Chillus','Conjuncts'].includes(value.ui.soundFeatureGroup))clean.ui.soundFeatureGroup=value.ui.soundFeatureGroup;
     }
     for(const [id,w] of Object.entries(value.writing||{})){
       if(!validIds.has(id)||!w||!counter(w.attempts)||!unit(w.bestFit))continue;

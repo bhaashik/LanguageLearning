@@ -19,6 +19,7 @@ The development server uses port 4173 (`PORT` overrides it). Any static HTTP ser
 - Script examples use actual words for common symbols. Three rare learned vocalic vowels and rare chillu ൿ have explicit teaching examples/alternative-spelling notes rather than invented everyday words.
 - 66 everyday words, 10 phrases, additional sound-example vocabulary, six grammar patterns, and a six-part **Sounds of Malayalam (Phonetics & Phonology)** section.
 - Roman spelling, broad IPA, extended Devanagari, and simplified morpheme glosses are available in expandable details on learning cards, script examples, grammar examples, recap, and answer feedback. Letters/syllables are labelled as sound units, not morphemes. Joined word forms can differ from their segmented analysis.
+- Every writing form also has phonetic feature labels and a one- or two-sentence pronunciation tip. Vowels show height, front/back position, rounding, and length; consonants show place, manner, voicing, and aspiration where relevant. Conjuncts and syllables list their component sounds separately. **Sounds of Malayalam** includes a browsable feature reference and a short glossary of the labels.
 - Curved tracing for all 104 reference entries and 871 additional syllable forms, with numbered starts, direction arrows, an animated demonstration, guide hiding, undo/clear, and pen/finger/mouse input. Offline checks cover guide fit, separate marks, smoothness, pen lifts, and following the suggested path. Optional handwriting recognition supports OpenAI, Gemini, Claude, local compatible vision models, and custom OCR endpoints; generated practice paths are not teacher-verified Malayalam stroke order.
 - Recognition, grammar, and sound-pattern exercises. Every exercise ends with its complete answer key, including the learner’s answers and explanatory detail.
 - Separate colored accuracy bars for writing-system recognition, phonetics, words, phrases, and grammar, both **this session** and **overall**. Scores measure answered questions, not proficiency or freehand writing quality.
@@ -200,6 +201,7 @@ python3 tests/features.py
 python3 tests/tracing.py
 python3 tests/ocr-providers.py
 python3 tests/syllables.py
+python3 tests/phonetics.py
 ```
 
 Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, microphone capture using Chromium’s test microphone, native touch tracing, and OCR provider switching/caching/cancellation. The tracing suite also needs Pillow for inspecting the ink-only OCR image. OCR uses fixture responses in tests; no paid recognition call is made. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.

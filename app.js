@@ -6,6 +6,7 @@ import {audioPage} from './audio-ui.js';
 import {validateEndpoint} from './audio-store.js';
 import {defaultOpenAIVoice} from './speech-presets.js';
 import {tracingPanel,createTracingPad} from './tracing-pad.js';
+import {featureGlossary} from './phonetics.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -25,6 +26,7 @@ let wordGroup=resumed?.wordGroup||'All words';
 let search=resumed?.search||'';
 let studyIndex=resumed?.studyIndex||0;
 let quiz=null;
+let soundFeatureGroup=['Vowels','Consonants','Vowel signs','Chillus','Conjuncts'].includes(resumed?.soundFeatureGroup)?resumed.soundFeatureGroup:'Vowels';
 let showRecap=Boolean(resumed&&(progress.recent.length||resumed.route!=='learn'));
 const initialRoute=location.hash.slice(1);
 if(!initialRoute&&resumed?.route)history.replaceState(null,'',`#${resumed.route}`);
@@ -67,15 +69,19 @@ function restoreQuiz(q){
   return {...q,items,pool,history,score:history.filter(h=>h.correct).length,lessonId:lessonIds.has(q.lessonId)?q.lessonId:null};
 }
 if(route()==='review'&&(!initialRoute||initialRoute===resumed?.route))quiz=restoreQuiz(resumed?.quiz);
-function savePosition(){progress=ensureSession(progress);progress={...progress,session:{...progress.session,lastAt:Date.now()},ui:{route:route(),studyIndex,activeScript,syllableBase,syllablePattern,wordGroup,search,quiz:packQuiz()}};save();}
+function savePosition(){progress=ensureSession(progress);progress={...progress,session:{...progress.session,lastAt:Date.now()},ui:{route:route(),studyIndex,activeScript,syllableBase,syllablePattern,soundFeatureGroup,wordGroup,search,quiz:packQuiz()}};save();}
 function completed(id) {return (progress.lessons[id]||0)>=0.8;}
 function due() {return dueItems(progress,allItems);}
 function nextLesson() {return lessons.find(l=>!completed(l.id))||lessons[0];}
 function playButton(item,small=false) {return `<button type="button" class="${small?'sound-small':'button secondary'}" data-speak="${item.id}" aria-label="Hear ${esc(item.roman)} in Malayalam">${icon('sound')}${small?'':'<span>Listen</span>'}</button>`;}
 function ml(text,cls='') {return `<span lang="ml" class="ml ${cls}">${esc(text)}</span>`;}
 function route() {return location.hash.slice(1)||'learn';}
+function phoneticFeatures(item){
+  const info=item.phonetics;if(!info)return '';
+  return `<section class="phonetic-features" aria-label="Phonetic features and pronunciation"><p class="feature-heading">Features &amp; pronunciation${info.ending?` <span>${esc(info.ending)}</span>`:''}</p>${info.parts.map(p=>`<div class="phonetic-part"><span class="phonetic-part-label">${esc(p.label)} <span lang="ml" class="ml">${esc(p.symbol)}</span> /${esc(p.ipa)}/</span><ul class="feature-badges" aria-label="${esc(p.label)} features">${p.features.map(feature=>`<li>${esc(feature)}</li>`).join('')}</ul></div>`).join('')}<p class="pronunciation-tip"><strong>Say it:</strong> ${esc(info.tip)}</p></section>`;
+}
 function linguistic(item,open=false){
-  return `<details class="linguistic-details" ${open?'open':''}><summary>Roman · IPA · Devanagari · gloss</summary><dl><div><dt>Roman</dt><dd>${esc(item.roman)}</dd></div><div><dt>IPA</dt><dd>/${esc(item.ipa)}/ <small>${esc(item.ipaType)}</small></dd></div><div><dt>Extended Devanagari</dt><dd lang="hi" class="deva">${esc(item.devanagari)}</dd></div></dl><p class="gloss-label">${esc(item.glossType)}</p><div class="gloss-parts">${item.gloss.map(p=>`<div><span class="ml" lang="ml">${esc(p.ml)}</span><span>${esc(p.roman)}</span><strong>${esc(p.gloss)}</strong></div>`).join('')}</div><p class="gloss-help">Simplified analysis; joined surface forms can differ from these parts. Devanagari is a script correspondence, not exact Hindi pronunciation. <a href="#about">Gloss key & sound conventions</a></p></details>`;
+  return `<details class="linguistic-details" ${open?'open':''}><summary>Roman · IPA · ${item.phonetics?'features · ':''}Devanagari · gloss</summary><dl><div><dt>Roman</dt><dd>${esc(item.roman)}</dd></div><div><dt>IPA</dt><dd>/${esc(item.ipa)}/ <small>${esc(item.ipaType)}</small></dd></div><div><dt>Extended Devanagari</dt><dd lang="hi" class="deva">${esc(item.devanagari)}</dd></div></dl>${phoneticFeatures(item)}<p class="gloss-label">${esc(item.glossType)}</p><div class="gloss-parts">${item.gloss.map(p=>`<div><span class="ml" lang="ml">${esc(p.ml)}</span><span>${esc(p.roman)}</span><strong>${esc(p.gloss)}</strong></div>`).join('')}</div><p class="gloss-help">Simplified analysis; joined surface forms can differ from these parts. Devanagari is a script correspondence, not exact Hindi pronunciation. <a href="#about">Gloss key & sound conventions</a></p></details>`;
 }
 function exampleFor(item){
   if(!item.example)return '';
@@ -152,7 +158,11 @@ function grammarPage() {
   return `${pageHeading('PATTERNS, NOT PUZZLES','Make a little sense of it.','Six useful patterns to help the words fit together. Take them one at a time.')}
   <button class="button primary section-practice" data-practice="grammar">Practise grammar patterns ${icon('arrow')}</button><div class="grammar-grid">${grammarItems.map((g,i)=>`<article class="grammar-card"><span class="eyebrow">PATTERN ${String(i+1).padStart(2,'0')}</span><h2>${g.title}</h2><p>${g.body}</p><div class="grammar-example">${ml(g.ml)}<span class="roman">${g.roman}</span><strong>${g.meaning}</strong>${playButton(g,true)}</div>${linguistic(g)}<p class="grammar-note">${g.note}</p></article>`).join('')}</div><p class="section-note">Based on the supplied everyday vocabulary and grammar guide, §§4–6. These are practical starting points; endings and usage depend on the stem, context, and register.</p>`;
 }
-function phoneticsPage(){return `${pageHeading('PHONETICS & PHONOLOGY','Sounds of Malayalam','How a sound is made, how it contrasts with others, and what changes in connected speech.')}<button class="button primary section-practice" data-practice="phonetics">Practise sound contrasts ${icon('arrow')}</button><p class="notice">IPA is a broad guide, not a recording. Word-level IPA is a spelling-based approximation; natural speech can differ. Extended Devanagari uses ऎ, ऒ, ऴ, ऱ and does not imply these contrasts are ordinary Hindi sounds.</p><div class="grammar-grid sounds-grid">${soundTopics.map((t,i)=>`<article class="grammar-card"><span class="eyebrow">SOUND PATTERN ${i+1}</span><h2>${t.title}</h2><p>${t.body}</p><div class="sound-examples">${t.examples.map(text=>{const item=allItems.find(i=>i.ml===text&&i.kind==='word');return `<div><a href="#item/${item.id}">${ml(item.ml)}<strong>${item.meaning}</strong></a>${playButton(item,true)}${linguistic(item)}</div>`;}).join('')}</div></article>`).join('')}</div>`;}
+function soundFeatureReference(){
+  const groups={Vowels:vowels,Consonants:consonants,'Vowel signs':signs,Chillus:chillus,Conjuncts:conjuncts};
+  return `<section class="sound-feature-reference"><div class="section-title"><h2>Features. A small guide to saying them.</h2><span>One or two sentences per form</span></div><p class="section-note">Features describe the component sounds. A consonant letter normally adds an inherent vowel; clusters can mix voiced and unvoiced sounds. These are broad teaching descriptions: exact vowel position, voicing, and aspiration can vary with context, register, and speaker.</p><details class="feature-key"><summary>What do front, voiced, palatal, and the other labels mean?</summary><dl>${featureGlossary.map(([term,meaning])=>`<div><dt>${esc(term)}</dt><dd>${esc(meaning)}</dd></div>`).join('')}</dl></details><div class="tabs" role="group" aria-label="Sound feature category">${Object.keys(groups).map(group=>`<button type="button" class="tab ${group===soundFeatureGroup?'selected':''}" data-sound-group="${group}" aria-pressed="${group===soundFeatureGroup}">${group}<span>${groups[group].length}</span></button>`).join('')}</div><div class="sound-feature-grid">${groups[soundFeatureGroup].map(item=>`<article class="panel sound-feature-card" data-feature-item="${item.id}"><div class="sound-feature-title"><a href="#item/${item.id}">${ml(item.ml)}<strong>${esc(item.roman)}</strong></a>${playButton(item,true)}</div>${phoneticFeatures(item)}<a href="#item/${item.id}" class="text-link">Explore, trace &amp; listen ${icon('arrow')}</a></article>`).join('')}</div></section>`;
+}
+function phoneticsPage(){return `${pageHeading('PHONETICS & PHONOLOGY','Sounds of Malayalam','How a sound is made, how it contrasts with others, and what changes in connected speech.')}<button class="button primary section-practice" data-practice="phonetics">Practise sound contrasts ${icon('arrow')}</button><p class="notice">IPA is a broad guide, not a recording. Word-level IPA is a spelling-based approximation; natural speech can differ. Extended Devanagari uses ऎ, ऒ, ऴ, ऱ and does not imply these contrasts are ordinary Hindi sounds.</p>${soundFeatureReference()}<div class="grammar-grid sounds-grid">${soundTopics.map((t,i)=>`<article class="grammar-card"><span class="eyebrow">SOUND PATTERN ${i+1}</span><h2>${t.title}</h2><p>${t.body}</p><div class="sound-examples">${t.examples.map(text=>{const item=allItems.find(i=>i.ml===text&&i.kind==='word');return `<div><a href="#item/${item.id}">${ml(item.ml)}<strong>${item.meaning}</strong></a>${playButton(item,true)}${linguistic(item)}</div>`;}).join('')}</div></article>`).join('')}</div>`;}
 function lessonPage(id) {
   const lesson=lessons.find(l=>l.id===id);if(!lesson)return notFound();
   studyIndex=Math.min(studyIndex,lesson.items.length-1);
@@ -339,6 +349,7 @@ $('#app').addEventListener('click',async e=>{
   if(button.dataset.audio||button.dataset.device||button.dataset.clipPlay||button.dataset.clipDelete){await handleAudioClick(button);return;}
   if(button.dataset.speak){speak(button.dataset.speak);return;}
   if(button.dataset.script){activeScript=button.dataset.script;render();return;}
+  if(button.dataset.soundGroup&&['Vowels','Consonants','Vowel signs','Chillus','Conjuncts'].includes(button.dataset.soundGroup)){soundFeatureGroup=button.dataset.soundGroup;render();return;}
   if(button.dataset.card!==undefined){studyIndex=Number(button.dataset.card);render();return;}
   if(button.dataset.quiz){const l=lessons.find(l=>l.id===button.dataset.quiz);startQuiz(l.items,l.id);return;}
   if(button.dataset.practice){const pools={vowels:vowels.slice(0,12),words,phrases,grammar:grammarItems,phonetics:phoneticsItems};startQuiz(pools[button.dataset.practice]);return;}
