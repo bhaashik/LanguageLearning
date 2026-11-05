@@ -67,6 +67,8 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record Malayalam pronunciation and save it in your private Bhaasa audio library.</string>
+	<string>Record language practice for Malayalam or French, check your speech, and save recordings you choose to keep.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Recognize Malayalam or French language practice when you choose device speech recognition.</string>
 </dict>
 </plist>

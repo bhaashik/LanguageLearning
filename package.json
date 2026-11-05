@@ -1,9 +1,9 @@
 {
   "name": "bhaasa-malayalam",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
-  "description": "A small, offline-first Malayalam learning app",
+  "description": "Offline-first Malayalam and French language learning",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
@@ -19,5 +19,7 @@
     "speech:install": "npm ci --prefix gateway --no-audit --no-fund",
     "test": "node --test tests/*.test.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20.12"
+  }
 }

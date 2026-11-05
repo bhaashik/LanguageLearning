@@ -29,6 +29,6 @@ export async function loadConfiguration(options={},env=process.env){
   const browser=options.browser||env.BHAASA_DESKTOP_BROWSER||settings.browser||'auto';
   if(typeof browser!=='string'||browser.length>4096)throw Error('The browser setting must be a browser name or executable path.');
   // Keys stay in the server process. Ignore arbitrary runtime options in this file.
-  const providerEnv=Object.fromEntries(Object.entries(privateEnv).filter(([key])=>key.startsWith('BHAASA_OCR_')||key.startsWith('BHAASA_TTS_')));
+  const providerEnv=Object.fromEntries(Object.entries(privateEnv).filter(([key])=>key.startsWith('BHAASA_ASR_')||key.startsWith('BHAASA_OCR_')||key.startsWith('BHAASA_TTS_')));
   return {directory,envFile,settingsFile,port,browser,env:{...providerEnv,...env}};
 }

@@ -51,7 +51,7 @@ export function launchPlan(browser,url,platform=process.platform){
 }
 export async function openBrowser(browser,url){
   const plan=launchPlan(browser,url);
-  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!/^BHAASA_(OCR|TTS)_.*KEY$/i.test(key)));
+  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!/^BHAASA_(OCR|TTS|ASR)_.*KEY$/i.test(key)));
   const child=spawn(plan.command,plan.args,{stdio:'ignore',detached:true,windowsHide:true,shell:false,env});
   await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});child.unref();
 }

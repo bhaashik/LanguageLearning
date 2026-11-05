@@ -10,6 +10,6 @@ export async function installLinux({executable,icon,env=process.env}){
   // Desktop Entry string escaping is applied before Exec argument quoting.
   const command=('"'+executable.replace(/([\\"`$])/g,'\\$1').replace(/%/g,'%%')+'"').replace(/\\/g,'\\\\');
   const entry=path.join(applications,'io.github.bhaashik.bhaasa.desktop');
-  await writeFile(entry,`[Desktop Entry]\nType=Application\nName=Bhaasa\nComment=Learn Malayalam sounds, writing and everyday language\nExec=${command}\nIcon=${iconFile.replace(/\\/g,'\\\\')}\nTerminal=false\nCategories=Education;Languages;\nStartupNotify=true\n`,{mode:0o644});
+  await writeFile(entry,`[Desktop Entry]\nType=Application\nName=Bhaasa\nComment=Learn Malayalam and French sounds, grammar and speaking\nExec=${command}\nIcon=${iconFile.replace(/\\/g,'\\\\')}\nTerminal=false\nCategories=Education;Languages;\nStartupNotify=true\n`,{mode:0o644});
   return entry;
 }

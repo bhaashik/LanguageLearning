@@ -41,6 +41,7 @@ export function glossParts(item) {
   return [{ml:item.ml,roman:item.roman,gloss:pronouns[item.ml]||item.meaning.replaceAll(' / ','.').replaceAll(' ','.')}];
 }
 export function enrich(item) {
+  item.language ||= 'ml';
   if(['letter','sign','chillu','conjunct','syllable'].includes(item.kind))item.phonetics=phoneticsFor(item.ml);
   item.devanagari=toDevanagari(item.ml);
   item.ipa ||= broadIPA(item.roman);
@@ -51,4 +52,4 @@ export function enrich(item) {
   return item;
 }
 
-export const glossLegend='1SG: I/me · 2: second person · 3SG.F: she · POL: polite · PL: plural · GEN: possessive · DAT: to/for · COP: is · EXIST: exists · NEG: negative · IMP: imperative · INF: infinitive · FUT: future · PST: past · NPST: nonpast · OBL: inflected stem · LOC: location. Hyphens/columns show analysis, not necessarily surface spelling; sound changes may join parts.';
+export const glossLegend='1SG: I/me · 2: second person · 3SG.F: she · POL: polite · PL: plural · GEN: possessive · DAT: to/for · COP: is · EXIST: exists · NEG: negative · IMP: imperative · INF: infinitive · FUT: future · PST: past · NPST: nonpast · ACC: direct object · ALL: towards · COND: conditional · PTCP: participle · ATTR: attributive · NMLZ: nominalized · OBLIG: obligation · OBL: inflected stem · LOC: location. Hyphens/columns show analysis, not necessarily surface spelling; sound changes may join parts.';

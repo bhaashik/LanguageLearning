@@ -10,7 +10,8 @@ export function createBridge({Capacitor,Filesystem,Share,TextToSpeech,Directory}
     },
     async speak({text,voice,lang}){
       const selected=voices.find(v=>v.voiceURI===voice||v.name===voice);
-      if(!selected||!selected.lang.toLowerCase().replace('_','-').startsWith('ml'))throw Error('Select an installed Malayalam device voice first.');
+      const code=String(lang||'ml-IN').toLowerCase().replace('_','-').split('-')[0];
+      if(!['ml','fr'].includes(code)||!selected||selected.lang.toLowerCase().replace('_','-').split('-')[0]!==code)throw Error(`Select an installed ${code==='fr'?'French':'Malayalam'} device voice first.`);
       return TextToSpeech.speak({text,lang:selected.lang||lang,voice:selected.nativeIndex,rate:.8,pitch:1,volume:1,category:'ambient'});
     },
     stopSpeech:()=>TextToSpeech.stop(),

@@ -35,13 +35,14 @@ test('correct recall schedules a review; an error returns the item immediately',
   assert.equal(dueItems(second,vowels,now+1).length,1);
   assert.equal(first.items['v-0'].attempts,1,'updates do not mutate old state');
 });
-test('repeated success caps the schedule at thirty days and preserves attempt counts',()=>{
-  let p=emptyProgress();const now=1000;
-  for(let i=0;i<10;i++)p=recordAnswer(p,'v-1',true,now);
+test('successful due reviews cap at thirty days; early repetitions do not advance retention',()=>{
+  let p=emptyProgress();let now=1000;
+  for(let i=0;i<10;i++){now=p.items['v-1']?.due||now;p=recordAnswer(p,'v-1',true,now);}
   assert.equal(p.items['v-1'].stage,5);
   assert.equal(p.items['v-1'].due,now+30*86400000);
   assert.equal(p.items['v-1'].attempts,10);
-  assert.equal(p.activity[localDay(now)],10);
+  assert.equal(Object.values(p.activity).reduce((sum,n)=>sum+n,0),10);
+  const early=recordAnswer(p,'v-1',true,now+1);assert.equal(early.items['v-1'].stage,5);assert.equal(early.items['v-1'].due,p.items['v-1'].due);
 });
 test('due review orders missed items before future items and excludes unseen items',()=>{
   let p=recordAnswer(emptyProgress(),'v-0',false,100);

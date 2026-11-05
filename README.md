@@ -1,10 +1,10 @@
 # Bhaasa · Sounds, scripts, and everyday language
 
-Bhaasa starts with Malayalam and the two learning guides supplied for this project. The core app is static HTML, CSS, and JavaScript with no runtime packages or backend requirement. Progress and recordings stay on the learner’s device. New speech generation is optional and can use a separately connected service.
+Bhaasa teaches Malayalam and French. The Malayalam foundation started from the two learning guides supplied for this project. The core app is static HTML, CSS, and JavaScript with no runtime packages or backend requirement. Progress and recordings stay on the learner’s device. New speech generation is optional and can use a separately connected service.
 
 ## Run
 
-With Node.js 20+ (Node 24 recommended):
+With Node.js 20.12+ (Node 24 recommended):
 
 ```sh
 cd /workspace/LanguageLearning
@@ -13,7 +13,19 @@ npm run dev
 
 The development server uses port 4173 (`PORT` overrides it). Any static HTTP server also serves the core app; HTTPS or localhost is required for installation, offline caching, and microphone access. Do not open `index.html` through `file://`.
 
-## Linux and Windows desktop
+## Constructions, speaking, and spaced reviews
++
++Choose **Malayalam** or **French** in the language selector. Each language retains its own progress, recap, reviews, voice preferences, and audio collection. Malayalam includes its existing script/tracing course; French adds the Latin alphabet, accent marks/ligatures, starter vocabulary, phrases, and six sound topics.
++
++**Useful constructions** has 16 units and 32 model sentences per language. Units cover function words, pronoun/noun case or gender, inflections, agreement constraints, questions, negation, requests, tense, clitics/relatives, and simple conditions. Examples include Roman/Latin spelling, broad IPA, approximate extended Devanagari, and explicit glosses. Construction exercises have complete answer keys and no tracing/OCR.
++
++**Speak & listen** reuses the audio library for model TTS. ASR can use browser recognition, OpenAI transcription, Gemini audio input, a local Whisper-compatible service, or a custom adapter. Gateway recordings are submitted only by an explicit check; the expected phrase is never sent. Results show transcripts and word overlap, not a pronunciation/fluency grade. French silent agreement endings still need written practice. Microphone recording/import, recording playback/saving, cancellation, and native app pause are supported.
++
++Recall and speaking have separate review queues: successful due reviews advance through **1, 3, 7, 14, 30 days**. Misses return now; early correct practice does not push the schedule forward. Progress exports include speaking history and the learning language; audio exports remain separate and use `malayalam/` or `french/` folder roots. Existing Malayalam progress/audio identities remain compatible. Switch to the matching language before importing its backup.
++
++The offline [speech and review guide](docs/SPEAKING.html) explains provider variables, privacy, microphone support, language behavior, and scheduling. The local web server loads `.env.local`; the desktop package reads `providers.env`. New `BHAASA_ASR_<PROVIDER>_API_KEY`, `_MODEL(S)`, and `_URL` settings are independent of OCR/TTS. Paid account access, recognition quality, and native pronunciation still require real-service/teacher review.
++
++## Linux and Windows desktop
 +
 +The portable desktop package uses an installed browser and includes the local OCR/TTS gateway. Chrome/Edge/Chromium/Brave open an app window; Firefox and the explicit system-default option open a normal window. No hosting or separate Node installation is needed for packaged builds. Provider keys stay in a private `providers.env` file outside the executable.
 +
@@ -28,7 +40,7 @@ The development server uses port 4173 (`PORT` overrides it). Any static HTTP ser
 +
 +## Android and iOS
 
-Bhaasa includes Capacitor projects for Android and iOS. Lessons, tracing, progress, and saved audio are packaged on the device, with native Malayalam voices and file sharing. No hosting is needed for the core app. Cloud OCR/TTS require a separately reachable HTTPS gateway; your computer's `127.0.0.1` address will not work on a phone.
+Bhaasa includes Capacitor projects for Android and iOS. Lessons, tracing, progress, and saved audio are packaged on the device, with native voices for the selected language and file sharing. No hosting is needed for the core app. Cloud OCR/TTS require a separately reachable HTTPS gateway; your computer's `127.0.0.1` address will not work on a phone.
 
 ```sh
 # Node 24; install mobile dependencies once
@@ -42,7 +54,7 @@ See the [mobile setup guide](docs/MOBILE.html) for APK builds, iPhone signing, g
 
 ## Learning workflow
 
-- Ten guided lessons and an unrestricted script reference: 16 vowels, 36 consonants, 14 vowel-sign examples, 6 chillus, and 32 conjuncts. The Syllables builder covers 952 base/pattern combinations, including vowel-marked conjuncts.
+- Ten Malayalam foundation lessons, sixteen additional construction lessons, and an unrestricted Malayalam script reference: 16 vowels, 36 consonants, 14 vowel-sign examples, 6 chillus, and 32 conjuncts. The Syllables builder covers 952 base/pattern combinations, including vowel-marked conjuncts.
 - Script examples use actual words for common symbols. Three rare learned vocalic vowels and rare chillu ൿ have explicit teaching examples/alternative-spelling notes rather than invented everyday words.
 - 66 everyday words, 10 phrases, additional sound-example vocabulary, six grammar patterns, and a six-part **Sounds of Malayalam (Phonetics & Phonology)** section.
 - Roman spelling, broad IPA, extended Devanagari, and simplified morpheme glosses are available in expandable details on learning cards, script examples, grammar examples, recap, and answer feedback. Letters/syllables are labelled as sound units, not morphemes. Joined word forms can differ from their segmented analysis.
@@ -142,7 +154,7 @@ Offline tracing works with no key or gateway. Cloud OCR requires internet; a loc
 
 Open **Voices & recordings**. Available options are:
 
-1. **Device Malayalam voices.** The browser reports its installed voices; Bhaasa only uses Malayalam voices. Choose a voice explicitly. Gender is unspecified unless you or a provider supplies a label. Web Speech does not expose audio bytes, so its output cannot be saved as a recording by this app.
+1. **Device voices.** The browser reports installed voices; Bhaasa uses only voices matching the selected language. Choose a voice explicitly. Gender is unspecified unless you or a provider supplies a label. Web Speech does not expose audio bytes, so its output cannot be saved as a recording by this app.
 2. **Human audio.** Record with a microphone or import an audio file for any symbol, sound, word, phrase, lesson, or section. “Stop & save” commits the microphone recording; the maximum recording is two minutes. Native mobile/browser permissions still apply. Individual imports are limited to 20 MB.
 3. **Speech services/models.** OpenAI is the preferred provider; the OpenAI quick-setup panel supplies current model/voice choices and a connection check. Add a named profile with provider, speech-model ID, voice ID, optional gender label, and a gateway URL. The gateway keeps provider credentials on its server. “Discover service models” reads the gateway’s configured model list. A text-only LLM is not automatically a speech model; provider subscriptions, language support, and voice quality must be checked independently.
 
@@ -229,6 +241,7 @@ python3 tests/tracing.py
 python3 tests/ocr-providers.py
 python3 tests/syllables.py
 python3 tests/phonetics.py
+python3 tests/constructions.py
 python3 tests/mobile.py  # Shared UI with mocked native plugins; no device required
 # With the packaged desktop app running:
 BHAASA_URL=http://127.0.0.1:4174 python3 tests/desktop.py

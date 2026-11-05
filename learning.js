@@ -1,7 +1,8 @@
+import {nextReview} from './repetition.js';
 export const STORAGE_KEY = 'bhaasa.progress.v2';
 export const LEGACY_STORAGE_KEY = 'aksharam.progress.v1';
 export const SESSION_GAP=30*60*1000;
-export const emptyProgress = () => ({version:2, items:{}, lessons:{}, activity:{},session:null,ui:null,recent:[],writing:{}});
+export const emptyProgress = (language='ml') => ({version:2,language,items:{},lessons:{},activity:{},session:null,ui:null,recent:[],writing:{},speaking:{}});
 const emptyRecognition=()=>({requests:0,judged:0,correct:0,lastText:null,lastMatched:null,lastDrawingId:null,lastRecognitionKey:null,lastProvider:null,lastModel:null,readings:[]});
 const emptyWriting=()=>({attempts:0,bestFit:0,last:null,draft:[],draftId:null,customGuide:null,ocr:emptyRecognition()});
 const writingSession=()=>({checks:0,totalFit:0,ocrRequests:0,ocrJudged:0,ocrCorrect:0});
@@ -10,9 +11,10 @@ const counter=n=>Number.isSafeInteger(n)&&n>=0;
 const cleanReadings=readings=>Array.isArray(readings)?readings.filter(r=>r&&typeof r.drawingId==='string'&&r.drawingId.length<80&&typeof r.recognitionKey==='string'&&r.recognitionKey.length<1600&&(r.text===null||typeof r.text==='string'&&r.text.length<=80)&&(r.matched===null||typeof r.matched==='boolean')).slice(-20).map(r=>({drawingId:r.drawingId,recognitionKey:r.recognitionKey,text:r.text,matched:r.matched,provider:typeof r.provider==='string'?r.provider.slice(0,64):null,model:typeof r.model==='string'?r.model.slice(0,150):null})):[];
 const validDraft=paths=>Array.isArray(paths)&&paths.length<=80&&paths.reduce((n,p)=>n+(Array.isArray(p)?p.length:20000),0)<=12000&&paths.every(p=>Array.isArray(p)&&p.length&&p.every(q=>q&&Number.isFinite(q.x)&&q.x>=0&&q.x<=800&&Number.isFinite(q.y)&&q.y>=0&&q.y<=600));
 
-export function validateProgress(value, validIds, lessonIds) {
+export function validateProgress(value, validIds, lessonIds,language=value?.language||'ml') {
   if (!value || ![1,2].includes(value.version) || !value.items || typeof value.items !== 'object' || !value.lessons || typeof value.lessons !== 'object' || !value.activity || typeof value.activity !== 'object') throw new Error('Not a Bhaasa progress file.');
-  const clean = emptyProgress();
+  if(!['ml','fr'].includes(language)||(value.language||'ml')!==language)throw Error('This backup belongs to a different learning language. Switch languages before importing it.');
+  const clean = emptyProgress(language);
   for (const [id,item] of Object.entries(value.items || {})) {
     if (!validIds.has(id)) continue;
     if (!item || !Number.isSafeInteger(item.attempts) || item.attempts < 1 || !Number.isSafeInteger(item.correct) || item.correct < 0 || item.correct > item.attempts || !Number.isInteger(item.stage) || item.stage < 0 || item.stage > 5 || !Number.isFinite(item.due) || item.due < 0) throw new Error('Invalid review data.');
@@ -29,11 +31,12 @@ export function validateProgress(value, validIds, lessonIds) {
     const s=value.session;
     if(s&&Number.isFinite(s.startedAt)&&Number.isFinite(s.lastAt)&&s.lastAt>=s.startedAt&&s.sections&&typeof s.sections==='object'){
       const counters={};
-      for(const id of ['script','phonetics','words','phrases','grammar']){
+      for(const id of ['script','phonetics','words','phrases','grammar','constructions']){
         const count=s.sections[id];
         if(count&&Number.isSafeInteger(count.total)&&Number.isSafeInteger(count.correct)&&count.total>=0&&count.correct>=0&&count.correct<=count.total)counters[id]={total:count.total,correct:count.correct};
       }
       clean.session={startedAt:s.startedAt,lastAt:s.lastAt,sections:counters};
+      const sp=s.speaking;if(sp&&counter(sp.attempts)&&counter(sp.matches)&&sp.matches<=sp.attempts&&Number.isFinite(sp.totalCoverage)&&sp.totalCoverage>=0&&sp.totalCoverage<=sp.attempts)clean.session.speaking={attempts:sp.attempts,matches:sp.matches,totalCoverage:sp.totalCoverage};
       const w=s.writing;clean.session.writing=w&&counter(w.checks)&&Number.isFinite(w.totalFit)&&w.totalFit>=0&&w.totalFit<=w.checks&&counter(w.ocrRequests)&&counter(w.ocrJudged)&&counter(w.ocrCorrect)&&w.ocrCorrect<=w.ocrJudged&&w.ocrJudged<=w.ocrRequests?{checks:w.checks,totalFit:w.totalFit,ocrRequests:w.ocrRequests,ocrJudged:w.ocrJudged,ocrCorrect:w.ocrCorrect}:writingSession();
     }
     if(value.ui&&typeof value.ui==='object'&&typeof value.ui.route==='string'&&/^[a-z]+(?:\/[a-z0-9-]+)?$/.test(value.ui.route)&&value.ui.route.length<100){
@@ -56,12 +59,15 @@ export function validateProgress(value, validIds, lessonIds) {
       }
       clean.writing[id]=cleanItem;
     }
+    for(const [id,s] of Object.entries(value.speaking||{})){
+      if(validIds.has(id)&&s&&counter(s.attempts)&&counter(s.matches)&&s.matches<=s.attempts&&Number.isInteger(s.stage)&&s.stage>=0&&s.stage<=5&&Number.isFinite(s.due)&&s.due>=0&&typeof s.lastTranscript==='string'&&s.lastTranscript.length<=2000&&unit(s.lastCoverage)&&Number.isFinite(s.lastAt))clean.speaking[id]={attempts:s.attempts,matches:s.matches,stage:s.stage,due:s.due,lastTranscript:s.lastTranscript,lastCoverage:s.lastCoverage,lastAt:s.lastAt,source:String(s.source||'asr').slice(0,64)};
+    }
   }
   return clean;
 }
-export function startSession(progress,now=Date.now()) {return {...progress,session:{startedAt:now,lastAt:now,sections:{},writing:writingSession()}};}
+export function startSession(progress,now=Date.now()) {return {...progress,session:{startedAt:now,lastAt:now,sections:{},writing:writingSession(),speaking:{attempts:0,matches:0,totalCoverage:0}}};}
 export function ensureSession(progress,now=Date.now()) {return !progress.session||now-progress.session.lastAt>SESSION_GAP?startSession(progress,now):progress;}
-export function sectionFromId(id){return id.startsWith('sound-')?'phonetics':id.startsWith('grammar-')?'grammar':id.startsWith('phrase-')?'phrases':/^(v|vel|pal|ret|den|lab|oth|sign|ch|cj)-/.test(id)?'script':'words';}
+export function sectionFromId(id){if(/^(ml|fr)-use-/.test(id))return 'constructions';const local=id.replace(/^fr-/,'');return local.startsWith('sound-')?'phonetics':local.startsWith('grammar-')?'grammar':local.startsWith('phrase-')?'phrases':/^(v|vel|pal|ret|den|lab|oth|letter|sign|ch|cj)-/.test(local)?'script':'words';}
 export function sectionScores(progress,lookup) {
   const result={};
   for(const [id,item] of Object.entries(progress.items)){
@@ -97,10 +103,9 @@ export function localDay(now = Date.now()) {
 export function recordAnswer(progress, id, correct, now=Date.now(), section=sectionFromId(id)) {
   progress=ensureSession(progress,now);
   const old=progress.items[id] || {attempts:0,correct:0,stage:0};
-  const stage=correct ? Math.min(old.stage+1,5) : 0;
-  const days=[0,1,3,7,14,30];
+  const review=nextReview(progress.items[id],correct,now);
   return {...progress,
-    items:{...progress.items,[id]:{attempts:old.attempts+1,correct:old.correct+Number(correct),stage,due:now+days[stage]*86400000}},
+    items:{...progress.items,[id]:{attempts:old.attempts+1,correct:old.correct+Number(correct),...review}},
     activity:{...progress.activity,[localDay(now)]:(progress.activity[localDay(now)]||0)+1},
     session:{...progress.session,lastAt:now,sections:{...progress.session.sections,[section]:{total:(progress.session.sections[section]?.total||0)+1,correct:(progress.session.sections[section]?.correct||0)+Number(correct)}}},
     recent:[...progress.recent.filter(previous=>previous!==id),id].slice(-8)

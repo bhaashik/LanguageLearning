@@ -1,4 +1,4 @@
-import {MALAYALAM_READING_INSTRUCTIONS,openAIVoice} from '../speech-presets.js';
+import {readingInstructions,openAIVoice} from '../speech-presets.js';
 
 export function pcmToWav(pcm){
   if(!pcm.length||pcm.length%2)throw Error('Incomplete PCM audio');
@@ -17,7 +17,8 @@ async function socketFactory(url,options){
   return new WebSocket(url,{...options,...(proxy?{agent:new HttpsProxyAgent(proxy)}:{}),maxPayload:25*1024*1024});
 }
 
-export async function generateRealtime({input,model,voice,apiKey,signal},{connect=socketFactory,timeoutMs=40000}={}){
+export async function generateRealtime({input,model,voice,apiKey,signal,language='ml-IN'},{connect=socketFactory,timeoutMs=40000}={}){
+  const instructions=readingInstructions(language);
   if(signal?.aborted)throw Error('Speech request cancelled');
   const url=new URL('wss://api.openai.com/v1/realtime');url.searchParams.set('model',model);
   const socket=await connect(url,{headers:{Authorization:`Bearer ${apiKey}`}});
@@ -39,9 +40,9 @@ export async function generateRealtime({input,model,voice,apiKey,signal},{connec
       try{
         const event=JSON.parse(raw.toString());
         if(event.type==='session.created'&&!configured){
-          configured=true;socket.send(JSON.stringify({type:'session.update',session:{type:'realtime',output_modalities:['audio'],instructions:MALAYALAM_READING_INSTRUCTIONS,audio:{output:{format:{type:'audio/pcm',rate:24000},voice:openAIVoice(voice),speed:.85}}}}));
+          configured=true;socket.send(JSON.stringify({type:'session.update',session:{type:'realtime',output_modalities:['audio'],instructions,audio:{output:{format:{type:'audio/pcm',rate:24000},voice:openAIVoice(voice),speed:.85}}}}));
         }else if(event.type==='session.updated'&&!requested){
-          requested=true;socket.send(JSON.stringify({type:'response.create',response:{conversation:'none',output_modalities:['audio'],instructions:MALAYALAM_READING_INSTRUCTIONS,input:[{type:'message',role:'user',content:[{type:'input_text',text:input}]}]}}));
+          requested=true;socket.send(JSON.stringify({type:'response.create',response:{conversation:'none',output_modalities:['audio'],instructions,input:[{type:'message',role:'user',content:[{type:'input_text',text:input}]}]}}));
         }else if(event.type==='response.output_audio.delta'){
           if(!requested||typeof event.delta!=='string'||!/^[A-Za-z0-9+/]*={0,2}$/.test(event.delta))throw Error('Invalid audio from OpenAI');
           const data=Buffer.from(event.delta,'base64');size+=data.length;if(size>20*1024*1024-44)throw Error('Audio exceeds file limit');chunks.push(data);

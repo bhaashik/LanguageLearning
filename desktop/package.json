@@ -1,15 +1,23 @@
 {
   "name": "bhaasa-desktop",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Portable Bhaasa desktop app using an installed browser",
-  "engines": {"node": ">=24 <25"},
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "start": "npm run build && node build/main.cjs",
     "package": "npm run build && node scripts/package.mjs"
   },
-  "dependencies": {"https-proxy-agent": "9.1.0", "ws": "8.22.1"},
-  "devDependencies": {"esbuild": "0.28.2", "postject": "1.0.0-alpha.6"}
+  "dependencies": {
+    "https-proxy-agent": "9.1.0",
+    "ws": "8.22.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "postject": "1.0.0-alpha.6"
+  }
 }

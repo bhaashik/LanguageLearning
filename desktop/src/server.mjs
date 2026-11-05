@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {handleTranscription} from '../../scripts/transcribe.mjs';
 import {handleOCR} from '../../scripts/ocr.mjs';
 import {handleSpeech} from '../../scripts/speech.mjs';
 
@@ -32,7 +33,8 @@ export function createDesktopServer({asset,env={},version='development',instance
       if(name==='/desktop/'&&req.method==='GET'){
         res.writeHead(200,{...headers,'Content-Type':'text/html; charset=utf-8'}).end(settings());return;
       }
-      const privateEnv={...env,BHAASA_OCR_ALLOWED_ORIGIN:origin,BHAASA_TTS_ALLOWED_ORIGIN:origin};
+      const privateEnv={...env,BHAASA_OCR_ALLOWED_ORIGIN:origin,BHAASA_ASR_ALLOWED_ORIGIN:origin,BHAASA_TTS_ALLOWED_ORIGIN:origin};
+      if(await handleTranscription(req,res,url,{env:privateEnv,fetcher}))return;
       if(await handleOCR(req,res,url,{env:privateEnv,fetcher}))return;
       if(await handleSpeech(req,res,url,{env:privateEnv,fetcher}))return;
       if(!['GET','HEAD'].includes(req.method)){res.writeHead(405,headers).end();return;}

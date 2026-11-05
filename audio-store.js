@@ -1,6 +1,6 @@
 import {packZip,unpackZip} from './zip.js';
 import {isNativeApp} from './platform.js';
-export const clipKey=(target,profile)=>JSON.stringify(['ml',target.section,target.kind,target.id,profile.provider,profile.model,profile.voice]);
+export const clipKey=(target,profile)=>JSON.stringify([target.language||'ml',target.section,target.kind,target.id,profile.provider,profile.model,profile.voice]);
 export function validateEndpoint(value) {
   if(isNativeApp()&&!value?.trim())throw Error('Enter the HTTPS address of your OCR or speech gateway. The mobile app does not include the Node server.');
   const u=new URL(value,globalThis.location?.href||'http://localhost');
@@ -25,7 +25,7 @@ export async function saveClip(target,profile,blob,origin='file') {
   return new Promise((resolve,reject)=>{
     const tx=d.transaction('clips','readwrite'),store=tx.objectStore('clips');let saved;
     const previous=store.get(key);
-    previous.onsuccess=()=>{const now=Date.now();saved={key,language:'ml',section:target.section,scope:target.kind,itemId:target.id,text:target.ml,provider:profile.provider,model:profile.model,voice:profile.voice,gender:profile.gender||'unspecified',profileName:profile.name,origin,mime:blob.type,blob,createdAt:previous.result?.createdAt||now,updatedAt:now,revision:(previous.result?.revision||0)+1};store.put(saved);};
+    previous.onsuccess=()=>{const now=Date.now();saved={key,language:target.language||'ml',section:target.section,scope:target.kind,itemId:target.id,text:target.ml,provider:profile.provider,model:profile.model,voice:profile.voice,gender:profile.gender||'unspecified',profileName:profile.name,origin,mime:blob.type,blob,createdAt:previous.result?.createdAt||now,updatedAt:now,revision:(previous.result?.revision||0)+1};store.put(saved);};
     tx.oncomplete=()=>resolve(saved);tx.onerror=()=>reject(Error('Could not save audio. Storage may be full; export a backup and free some space.'));
   });
 }
@@ -34,7 +34,7 @@ export async function exportAudio(clips){
   const entries=[],manifest={format:'bhaasa-audio-v1',clips:[]};
   for(const [i,clip] of clips.entries()){
     const ext=clip.mime.includes('mpeg')?'mp3':clip.mime.includes('wav')?'wav':clip.mime.includes('ogg')?'ogg':clip.mime.includes('mp4')?'m4a':'webm';
-    const name=`malayalam/${slug(clip.section)}/${slug(clip.scope)}/${slug(clip.itemId)}/${slug(clip.provider)}/${slug(clip.model)}/${slug(clip.voice)}-${i}.${ext}`;
+    const name=`${clip.language==='fr'?'french':'malayalam'}/${slug(clip.section)}/${slug(clip.scope)}/${slug(clip.itemId)}/${slug(clip.provider)}/${slug(clip.model)}/${slug(clip.voice)}-${i}.${ext}`;
     const {blob,key,...metadata}=clip;manifest.clips.push({...metadata,path:name});entries.push({name,data:new Uint8Array(await blob.arrayBuffer())});
   }
   entries.unshift({name:'manifest.json',data:new TextEncoder().encode(JSON.stringify(manifest,null,2))});
@@ -46,7 +46,7 @@ export async function importAudio(blob,targets,overwrite=false){
   // Validate the whole manifest before writing any audio.
   const pending=manifest.clips.map(c=>{
     const target=targets[c.itemId],data=files.get(c.path);
-    if(!target||target.ml!==c.text||target.section!==c.section||target.kind!==c.scope||!data||data.length>20*1024*1024||!/^audio\/[a-z0-9.+;-]+(?:[ =a-z0-9".-]*)?$/i.test(c.mime)||!['provider','model','voice','profileName'].every(k=>typeof c[k]==='string'&&c[k].length<250))throw Error('The backup has unknown content, changed text, or invalid audio metadata.');
+    if(!target||(c.language||'ml')!==(target.language||'ml')||target.ml!==c.text||target.section!==c.section||target.kind!==c.scope||!data||data.length>20*1024*1024||!/^audio\/[a-z0-9.+;-]+(?:[ =a-z0-9".-]*)?$/i.test(c.mime)||!['provider','model','voice','profileName'].every(k=>typeof c[k]==='string'&&c[k].length<250))throw Error('The backup has unknown content, changed text, or invalid audio metadata.');
     const profile={provider:c.provider,model:c.model,voice:c.voice,name:c.profileName,gender:['male','female','neutral','unspecified'].includes(c.gender)?c.gender:'unspecified'};
     return {target,profile,blob:new Blob([data],{type:c.mime})};
   });

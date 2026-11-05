@@ -101,7 +101,7 @@ with sync_playwright() as p:
     state=page.evaluate('(k)=>JSON.parse(localStorage.getItem(k))',KEY)
     assert state['session']['sections']['phonetics']=={'total':6,'correct':6}
     assert state['session']['sections']['grammar']=={'total':6,'correct':6}
-    expect(page.locator('.section-score-grid .panel')).to_have_count(5)
+    expect(page.locator('.section-score-grid .panel')).to_have_count(6)
     page.screenshot(path=str(OUT/'section-scores.png'),full_page=True)
     print('PASS: card and quiz resume, recap, no double scoring, full answer key, section/session scores')
 
