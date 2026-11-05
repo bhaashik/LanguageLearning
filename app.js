@@ -7,6 +7,7 @@ import {validateEndpoint} from './audio-store.js';
 import {defaultOpenAIVoice} from './speech-presets.js';
 import {tracingPanel,createTracingPad} from './tracing-pad.js';
 import {featureGlossary} from './phonetics.js';
+import {isNativeApp,exportFile as download,helpLinkAttributes} from './platform.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -31,7 +32,7 @@ let showRecap=Boolean(resumed&&(progress.recent.length||resumed.route!=='learn')
 const initialRoute=location.hash.slice(1);
 if(!initialRoute&&resumed?.route)history.replaceState(null,'',`#${resumed.route}`);
 let audioVoices=[];
-let offlineReady=false;
+let offlineReady=isNativeApp();
 let installPrompt=null;
 let traceCleanup=()=>{};
 const audioTargets={...byId};
@@ -223,8 +224,8 @@ function aboutPage() {
   return `${pageHeading('A SMALL BEGINNING','A quieter way to learn.','Bhaasa is a simple, independent starting point for learning Malayalam.')}
   <div class="about-content"><section><h2>Built around your guides</h2><p>The lessons adapt the two PDFs supplied for this project: <strong>Malayalam Writing System</strong> and <strong>Malayalam in Everyday Life</strong>. The script reference follows the first guide; vocabulary, phrases, and grammar follow the second. The full documents are not bundled in the app.</p><p>Roman spellings are scholarly transliterations rather than English sound-alikes. IPA gives a broad approximation. Pronunciation, usage, and spelling conventions can vary by region and register. This first curriculum would benefit from a native Malayalam teacher’s review.</p></section>
   <section><h2>A note about sound and glosses</h2><p id="voice-note">${voiceNote()}</p><p>Choose a voice in Voices & recordings. Listen reuses a saved file for that exact provider/model/voice and content text, or uses the selected device/service voice. Device speech may require internet and cannot be captured to a file through Web Speech. Neither guide contains recordings; microphone, file imports, and connected speech services can add them.</p><p>IPA for words and sentences is a broad, spelling-based teaching approximation, not a verified transcription of natural speech. Extended Devanagari is a comparative script correspondence using ऎ, ऒ, ऴ, and ऱ. It does not equate Malayalam sounds with ordinary Hindi pronunciation. Glosses segment grammatical constructions where useful; lexical words can be unsplit, and letters are sound units rather than morphemes.</p><p>${glossLegend}</p></section>
-  <section><h2>Take it offline</h2><p id="offline-detail">${offlineReady?'The app and lessons have been saved for offline use on this device.':'The app saves its lesson files for offline use when served over HTTPS or localhost. Allow the first visit to finish loading before going offline.'}</p><p>On a supported browser, use “Install app” or “Add to Home Screen”. On iPhone and iPad, open the site in Safari and choose Share → Add to Home Screen. Offline storage can be removed by your browser; keep progress and audio backups.</p><button id="install-button" class="button primary" data-action="install" ${installPrompt?'':'hidden'}>Install Bhaasa ${icon('download')}</button></section>
-  <section><h2>OCR &amp; speech setup</h2><p>Connect Gemini, OpenAI, Claude, local vision engines, speech models, or human recordings. The setup guide explains model IDs, gateway addresses, keys, saved audio, and common errors.</p><p><a class="button secondary" href="./docs/PROVIDERS.html" target="_blank" rel="noopener">Open OCR &amp; speech setup guide</a></p></section><section><h2>A notebook on your device</h2><p>Your progress stays in this browser’s local storage. There is no sign-in or analytics. Using device speech may involve your browser’s speech provider. Export or import your progress on the Your progress page.</p></section></div>`;
+  <section><h2>Take it offline</h2><p id="offline-detail">${offlineReady?'The app and lessons are available offline on this device.':'The app saves its lesson files for offline use when served over HTTPS or localhost. Allow the first visit to finish loading before going offline.'}</p><p>${isNativeApp()?'Lessons and tracing are included in this installed app. Clearing app storage or uninstalling removes your local work; keep progress and audio backups.':'On a supported browser, use “Install app” or “Add to Home Screen”. On iPhone and iPad, open the site in Safari and choose Share → Add to Home Screen. Offline storage can be removed by your browser; keep progress and audio backups.'}</p><button id="install-button" class="button primary" data-action="install" ${installPrompt?'':'hidden'}>Install Bhaasa ${icon('download')}</button></section>
+  <section><h2>Android &amp; iOS apps</h2><p>The mobile build packages the same lessons, touch tracing, and progress on your device. Native device voices and file sharing are available in the installed app. Cloud OCR/speech use a reachable HTTPS gateway.</p><p><a class="button secondary" href="./docs/MOBILE.html" ${helpLinkAttributes()}>Mobile build &amp; setup guide</a></p></section><section><h2>OCR &amp; speech setup</h2><p>Connect Gemini, OpenAI, Claude, local vision engines, speech models, or human recordings. The setup guide explains model IDs, gateway addresses, keys, saved audio, and common errors.</p><p><a class="button secondary" href="./docs/PROVIDERS.html" ${helpLinkAttributes()}>Open OCR &amp; speech setup guide</a></p></section><section><h2>A notebook on your device</h2><p>Your progress stays in local storage on this device. There is no sign-in or analytics. Using device speech may involve your browser’s speech provider. Export or import your progress on the Your progress page.</p></section></div>`;
 }
 function notFound() {return `${pageHeading('A SMALL DETOUR','This page isn’t here.','Head back to your learning path to pick up where you left off.')}<a class="button primary" href="#learn">Back to learning ${icon('arrow')}</a>`;}
 
@@ -259,11 +260,10 @@ function voiceNote() {
   if(p.kind!=='device')return `Selected voice: ${esc(p.name)} · ${esc(p.provider)} / ${esc(p.model)} / ${esc(p.voice)}. Saved matching audio plays offline; generating new audio requires your connected service or a recording.`;
   const voice=audioVoices.find(v=>v.lang.toLowerCase().replace('_','-').startsWith('ml')&&(p.voice==='default'||p.voice===v.voiceURI||p.voice===v.name));
   if(voice)return `Malayalam speech available: ${esc(voice.name)}.${voice.localService?' This voice runs on your device.':' This voice may need an internet connection.'} Synthetic speech is an aid, not a native-speaker recording.`;
-  return 'No Malayalam speech voice is currently available in this browser. Try installing a Malayalam voice in your device’s speech settings, then reopen the app. Roman spelling and IPA remain available.';
+  return 'No Malayalam speech voice is currently available on this device. Try installing a Malayalam voice in your device’s speech settings, then reopen the app. Roman spelling and IPA remain available.';
 }
-function updateVoices() {
-  audioVoices=window.speechSynthesis?.getVoices()||[];
-  audio.refreshVoices();
+async function updateVoices() {
+  await audio.refreshVoices();audioVoices=audio.voices;
   if($('#voice-note'))$('#voice-note').innerHTML=voiceNote();
 }
 async function speak(id) {
@@ -288,7 +288,6 @@ function writingSummary(){
   return `<section class="writing-summary panel"><div class="section-title"><h2>Drawing practice</h2><span>Separate from recognition quizzes</span></div><p>This session: ${session?.checks||0} tracing checks${session?.checks?` · average fit ${Math.round(session.totalFit/session.checks*100)}%`:''}. Overall: ${checks} checks across ${entries.length} symbols. OCR has a separate result; an uncertain reading is not counted as a wrong letter.</p><div class="writing-records">${entries.map(([id,w])=>`<a href="#item/${id}">${ml(byId[id].ml)}<span>Best fit ${Math.round(w.bestFit*100)}% · ${w.attempts} checks</span><div class="score-meter ${w.bestFit>=.8?'good':w.bestFit>=.5?'fair':'needs-practice'}" role="img" aria-label="Best tracing fit ${Math.round(w.bestFit*100)} percent"><i style="width:${w.bestFit*100}%"></i></div><small>OCR ${w.ocr.correct}/${w.ocr.judged} readable results matched</small></a>`).join('')}</div></section>`;
 }
 
-function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}
 async function handleAudioClick(button){
   try{
     if(button.dataset.device){
@@ -322,7 +321,7 @@ async function handleAudioClick(button){
       case 'generate':await audio.generate(target,true,true);toast('Generated audio saved. The previous clip for this identity has been replaced if present.');break;
       case 'record':await audio.startRecording(target);break;
       case 'stop':audio.stopRecording();break;
-      case 'export':download(await audio.export($('#audio-export-scope')?.value||'all',target),'bhaasa-malayalam-audio.zip');break;
+      case 'export':await download(await audio.export($('#audio-export-scope')?.value||'all',target),'bhaasa-malayalam-audio.zip');break;
       case 'discover':{
         const endpoint=validateEndpoint($('#voice-form').elements.endpoint.value);
         $('#model-status').textContent='Checking the connected service…';
@@ -372,7 +371,7 @@ $('#app').addEventListener('click',async e=>{
     case 'clear-canvas':canvasActions.clear?.();break;
     case 'dismiss-recap':showRecap=false;render();break;
     case 'new-session':progress=startSession(progress);save();render();toast('A new session has started. Overall scores are unchanged.');break;
-    case 'export': {download(new Blob([JSON.stringify(progress,null,2)],{type:'application/json'}),'bhaasa-progress.json');toast('Progress exported. Keep the file somewhere safe.');break;}
+    case 'export': {try{await download(new Blob([JSON.stringify(progress,null,2)],{type:'application/json'}),'bhaasa-progress.json');toast(isNativeApp()?'Backup prepared. Use the share sheet to save or send it.':'Progress exported. Keep the file somewhere safe.');}catch(error){toast(error.message);}break;}
     case 'reset':if(confirm('Reset all learning progress on this device? Export a backup first if you want to keep it.')){progress=emptyProgress();save();render();toast('Your progress has been reset.');}break;
     case 'install':if(installPrompt){installPrompt.prompt();installPrompt=null;button.hidden=true;}break;
   }
@@ -414,14 +413,15 @@ function updateConnection(){if($('#offline-status'))$('#offline-status').innerHT
 updateVoices();window.speechSynthesis?.addEventListener('voiceschanged',updateVoices);
 render();
 audio.onChange=()=>{if(route().startsWith('audio'))render();};
-audio.load().then(()=>{if(route().startsWith('audio'))render();});
+audio.load().then(()=>{audioVoices=audio.voices;if(route().startsWith('audio'))render();else if($('#voice-note'))$('#voice-note').innerHTML=voiceNote();});
 window.addEventListener('pagehide',()=>{savePosition();audio.stopRecording();audio.stopPlayback();});
-if('serviceWorker' in navigator) {
+window.addEventListener('bhaasa:pause',()=>{savePosition();audio.stopRecording();audio.stopPlayback();});
+if(!isNativeApp()&&'serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>reg.active?.postMessage({type:'CHECK_OFFLINE'})).catch(()=>{offlineReady=false;updateConnection();});
   navigator.serviceWorker.addEventListener('message',e=>{
     if(e.data?.type==='OFFLINE_STATUS'){
       offlineReady=e.data.ready;updateConnection();
-      if($('#offline-detail')&&offlineReady)$('#offline-detail').textContent='The app and lessons have been saved for offline use on this device.';
+      if($('#offline-detail')&&offlineReady)$('#offline-detail').textContent='The app and lessons are available offline on this device.';
     }
   });
 }

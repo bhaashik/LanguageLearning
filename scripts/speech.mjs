@@ -1,6 +1,7 @@
 // Optional local companion. Never copied into the static Pages build.
 import {OPENAI_MODELS,OPENAI_DEFAULT_MODEL,OPENAI_DEFAULT_VOICE,openAIVoices,isRealtimeModel,openAIVoice,MALAYALAM_READING_INSTRUCTIONS} from '../speech-presets.js';
 import {generateRealtime,pcmToWav} from '../gateway/openai-realtime.mjs';
+import {originAllowed} from './origins.mjs';
 export function speechConfig(env=process.env){
   const provider=env.BHAASA_TTS_PROVIDER||'openai';
   const ready=Boolean(env.BHAASA_TTS_API_KEY)||(provider==='custom'&&Boolean(env.BHAASA_TTS_URL));
@@ -11,7 +12,7 @@ export async function handleSpeech(req,res,url,{env=process.env,fetcher=fetch,re
   if(!['/api/speech','/api/speech/models'].includes(url.pathname))return false;
   const origin=req.headers.origin;
   const allowed=env.BHAASA_TTS_ALLOWED_ORIGIN||url.origin;
-  if(origin&&origin!==allowed){res.writeHead(403).end('Origin not allowed');return true;}
+  if(!originAllowed(origin,allowed,url.origin)){res.writeHead(403).end('Origin not allowed');return true;}
   const headers={'Cache-Control':'no-store',...(origin?{'Access-Control-Allow-Origin':origin,'Vary':'Origin'}:{})};
   if(req.method==='OPTIONS'){res.writeHead(204,{...headers,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Accept'}).end();return true;}
   const cfg=speechConfig(env);

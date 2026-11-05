@@ -1,7 +1,7 @@
 import {mkdir,copyFile,cp,rm} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-const files=['index.html','styles.css','app.js','content.js','learning.js','linguistics.js','phonetics.js','sounds.js','audio.js','audio-store.js','audio-ui.js','speech-presets.js','ocr-settings.js','tracing.js','tracing-pad.js','zip.js','sw.js','manifest.webmanifest'];
+const files=['index.html','platform.js','styles.css','app.js','content.js','learning.js','linguistics.js','phonetics.js','sounds.js','audio.js','audio-store.js','audio-ui.js','speech-presets.js','ocr-settings.js','tracing.js','tracing-pad.js','zip.js','sw.js','manifest.webmanifest'];
 await rm(`${root}dist`,{recursive:true,force:true});await mkdir(`${root}dist`);
 for(const file of files)await copyFile(`${root}${file}`,`${root}dist/${file}`);
 await cp(`${root}assets`,`${root}dist/assets`,{recursive:true});
@@ -9,6 +9,7 @@ await cp(`${root}data`,`${root}dist/data`,{recursive:true});
 await mkdir(`${root}dist/docs`);
 await copyFile(`${root}docs/CONTENT.md`,`${root}dist/docs/CONTENT.md`);
 await copyFile(`${root}docs/PROVIDERS.html`,`${root}dist/docs/PROVIDERS.html`);
+await copyFile(`${root}docs/MOBILE.html`,`${root}dist/docs/MOBILE.html`);
 await copyFile(`${root}README.md`,`${root}dist/README.md`);
 await copyFile(`${root}.nojekyll`,`${root}dist/.nojekyll`);
 console.log('Static Bhaasa app built in dist/. Server code, credentials, tests, and source PDFs are excluded.');

@@ -1,7 +1,10 @@
 import {packZip,unpackZip} from './zip.js';
+import {isNativeApp} from './platform.js';
 export const clipKey=(target,profile)=>JSON.stringify(['ml',target.section,target.kind,target.id,profile.provider,profile.model,profile.voice]);
 export function validateEndpoint(value) {
+  if(isNativeApp()&&!value?.trim())throw Error('Enter the HTTPS address of your OCR or speech gateway. The mobile app does not include the Node server.');
   const u=new URL(value,globalThis.location?.href||'http://localhost');
+  if(isNativeApp()&&(u.protocol!=='https:'||['localhost','127.0.0.1','[::1]'].includes(u.hostname)))throw Error('Use a reachable HTTPS gateway. localhost and 127.0.0.1 refer to this phone, not your computer.');
   if(u.username||u.password||u.search||u.hash||!(u.protocol==='https:'||(u.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(u.hostname))))throw Error('Use an HTTPS gateway, or a local HTTP service. Do not put keys in its URL.');
   return u.href.replace(/\/$/,'');
 }

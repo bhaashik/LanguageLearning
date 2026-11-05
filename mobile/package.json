@@ -1,0 +1,31 @@
+{
+  "name": "bhaasa-mobile",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "description": "Android and iOS shell for the Bhaasa offline learning app",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "sync": "npm run build && cap sync",
+    "android": "npm run sync && cap open android",
+    "ios": "npm run sync && cap open ios",
+    "icons": "capacitor-assets generate --android --ios --assetPath assets --iconBackgroundColor '#214d3c' --splashBackgroundColor '#f8f8f2'"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/share": "8.0.3",
+    "@capacitor-community/text-to-speech": "8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "4.0.0",
+    "@capacitor/cli": "8.6.0",
+    "esbuild": "0.28.2"
+  }
+}

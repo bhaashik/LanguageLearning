@@ -1,0 +1,58 @@
+name: Build mobile apps
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build (iOS produces a simulator app)
+        type: choice
+        options: [android, ios, both]
+        default: android
+permissions:
+  contents: read
+jobs:
+  android:
+    if: inputs.platform == 'android' || inputs.platform == 'both'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - run: npm run mobile:install
+      - run: npm test
+      - run: npm run mobile:sync
+      - run: ./gradlew --no-daemon assembleDebug
+        working-directory: mobile/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bhaasa-Android-debug
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+  ios:
+    if: inputs.platform == 'ios' || inputs.platform == 'both'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm run mobile:install
+      - run: npm test
+      - run: npm run mobile:sync
+      - name: Build unsigned iOS simulator app
+        run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -derivedDataPath mobile/ios/DerivedData CODE_SIGNING_ALLOWED=NO build
+      - name: Package simulator app
+        run: ditto -c -k --sequesterRsrc --keepParent mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app mobile/Bhaasa-iOS-simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bhaasa-iOS-simulator
+          path: mobile/Bhaasa-iOS-simulator.zip

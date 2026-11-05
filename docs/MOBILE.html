@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Android &amp; iOS setup · Bhaasa</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f8f8f2;color:#26372e;font:16px/1.7 system-ui,sans-serif}main{max-width:900px;margin:auto;padding:32px 22px 80px}h1,h2{line-height:1.3}h2{margin-top:44px;border-top:1px solid #d8dfd3;padding-top:22px}a{color:#20533e}pre{padding:18px;background:#edf0e7;border:1px solid #d9e0d1;border-radius:8px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}code{font-family:ui-monospace,monospace;font-size:.9em}li{margin:8px 0}.note{border-left:4px solid #829c70;padding:12px 18px;background:#edf1e6}nav a{display:inline-block;margin:4px 18px 4px 0}@media print{body{background:white}main{max-width:none;padding:0}nav{display:none}pre{break-inside:avoid}}
+</style></head><body><main>
+<p><a href="../#about">← Back to Bhaasa</a> · <a href="PROVIDERS.html">OCR &amp; speech setup</a></p>
+<h1>Bhaasa on Android and iOS</h1>
+<p>The Capacitor mobile projects package Bhaasa’s lessons, fonts, phonetic guides, curved tracing, exercises, and scores on the device. No website hosting is needed for those features. Saved audio also plays offline. New cloud OCR and speech requests need a separate gateway; API keys stay on that server.</p>
+<nav aria-label="Guide contents"><a href="#build">Prepare</a><a href="#android">Android</a><a href="#ios">iOS</a><a href="#gateway">OCR &amp; speech</a><a href="#backup">Backups &amp; updates</a><a href="#checks">Checks &amp; distribution</a></nav>
+<section id="build"><h2>1. Prepare the mobile projects</h2>
+<p>Use Node.js 24 and a checkout of <a href="https://github.com/bhaashik/LanguageLearning">bhaashik/LanguageLearning</a>. Run these commands in the repository folder:</p>
+<pre>git pull
+npm run mobile:install
+npm run mobile:sync</pre>
+<p>Mobile dependencies are isolated in <code>mobile/</code>. The regular web app still builds with <code>npm run build</code> without installing them. Sync rebuilds the mobile web assets and updates both native projects. Repeat it after changing lessons or app code.</p>
+<p>The application ID is <code>io.github.bhaashik.bhaasa</code>. Keep that ID and the same release signing identity when distributing updates that should preserve installed data.</p></section>
+<section id="android"><h2>2. Android</h2>
+<p>Install Android Studio, JDK 21, Android SDK Platform 36, and Build Tools 35.0.0. The app targets Android 16 and supports Android 7.0 or later with an up-to-date Android System WebView/Chrome (109 or later).</p>
+<pre>npm run mobile:android</pre>
+<p>This syncs the app and opens <code>mobile/android</code> in Android Studio. Let Gradle finish, select an emulator or a USB-debugging phone, then click Run. To build an installable test APK from a terminal with <code>ANDROID_HOME</code> pointing to your SDK:</p>
+<pre>cd mobile/android
+./gradlew assembleDebug</pre>
+<p>On Windows use <code>gradlew.bat assembleDebug</code>. The result is <code>mobile/android/app/build/outputs/apk/debug/app-debug.apk</code>. Copy it to your Android phone and open it, allowing installation from that source when Android asks. You can also use <code>adb install -r app/build/outputs/apk/debug/app-debug.apk</code> from <code>mobile/android</code>.</p>
+<p>For a Play Store release, use Android Studio’s signed Android App Bundle option and your own release keystore. Keep the keystore private and backed up. Debug APKs are for testing; their signing keys can differ across computers and CI runs.</p></section>
+<section id="ios"><h2>3. iPhone and iPad</h2>
+<p>The app requires iOS/iPadOS 16.4 or later. Building it requires macOS with a current Xcode supporting the Capacitor 8 projects. Install the iOS simulator components in Xcode, then run the preparation commands above on your Mac.</p>
+<pre>npm run mobile:ios</pre>
+<p>Xcode opens <code>mobile/ios/App/App.xcodeproj</code>. Allow Swift Package Manager to resolve its packages, select the App scheme and an iPhone simulator, and click Run. CocoaPods is not required.</p>
+<p>For your own iPhone, select your connected device, enable Developer Mode if requested, and choose your development team under App → Signing &amp; Capabilities. If needed, choose a bundle identifier registered to your team and keep it stable for subsequent installs. Xcode handles device provisioning. TestFlight and App Store distribution require Apple Developer Program membership and an archive signed with your team’s credentials.</p>
+<p class="note">The iOS source project is supplied. iOS compilation, signing, and physical-device testing require a Mac and are not established by an Android build or browser tests. A simulator build is not an installable iPhone IPA.</p></section>
+<section id="gateway"><h2>4. Connect OCR and speech on a phone</h2>
+<p>Offline tracing needs no gateway. In an installed app, gateway fields start empty. Use a reachable HTTPS address such as <code>https://your-private-gateway.example/api/ocr</code> and <code>https://your-private-gateway.example/api/speech</code>. Enter the OCR address in the tracing connection settings; enter the speech address when adding a service voice.</p>
+<p><strong><code>localhost</code> and <code>127.0.0.1</code> on your phone refer to your phone.</strong> They do not reach the Node server on your computer. The installed app rejects those gateway addresses. A computer’s plain HTTP LAN address is also rejected.</p>
+<ol><li>Set up the Node companion and provider variables using the <a href="PROVIDERS.html">OCR &amp; speech guide</a>. Keep your working Gemini/OpenAI/model configuration on the server.</li><li>Expose the loopback companion through a trusted HTTPS reverse proxy reachable by your device. A private VPN gateway is suitable. Keep access private or protect it with server-side access controls; the companion is not a complete public authentication service. Do not publish an unrestricted paid-provider gateway.</li><li>Allow the installed origins on that server, then restart it. The comma-separated values are exact origins:</li></ol>
+<pre>BHAASA_OCR_ALLOWED_ORIGIN=https://localhost,capacitor://localhost
+BHAASA_TTS_ALLOWED_ORIGIN=https://localhost,capacitor://localhost</pre>
+<p>Android uses <code>https://localhost</code>; iOS uses <code>capacitor://localhost</code>. If you also use the browser app, append its exact origin, for example <code>,http://127.0.0.1:4173</code>. CORS restricts browser access; it is not user authentication. Keep provider keys in the gateway’s environment or secret store, never in the app bundle or a gateway URL. No client secret or custom authorization-header field is provided in the app.</p>
+<p>Use Check OCR connection or the speech connection check, then explicitly request a recognition/generation test. Model availability, quota, cost, and handwriting/pronunciation quality depend on the provider. A local OCR/TTS engine can sit behind the same private HTTPS gateway; the phone does not install or run that model.</p>
+<p><strong>Device voices:</strong> the installed app uses native text-to-speech and lists Malayalam voices reported by the operating system. Install Malayalam speech data in your device’s speech/accessibility settings if available. The app does not substitute an English voice. Some voices require internet. Device speech cannot be saved as generated audio; use a service or a microphone/file recording for reusable clips.</p>
+<p><strong>Recording:</strong> microphone permission is requested when recording begins. If denied, enable it in device settings, or import an audio file. Native microphone and audio behavior should be checked on your particular phone.</p></section>
+<section id="backup"><h2>5. Save and move your work</h2>
+<p>Progress and audio are private to the installed app. They are separate from your browser/PWA data. To move existing work, export progress JSON and audio ZIP from the browser, transfer those files to the phone, then import them in Your progress and Voices &amp; recordings.</p>
+<p>Export progress, audio, or tracing strokes to open the native share sheet. Choose a file-saving destination (such as Files/Drive) or another sharing app to keep a copy outside Bhaasa. Cancelling sharing does not create an external backup. Temporary export copies use the app’s cache.</p>
+<p>Clearing app storage, uninstalling, or installing an incompatible signing identity can lose local work. Export both progress and audio first. Android automatic app backup is disabled; keep explicit portable exports. Future releases should retain stable content IDs and the application ID.</p></section>
+<section id="checks"><h2>6. Verification and distribution</h2>
+<pre>npm test
+npm run mobile:sync</pre>
+<p>The repository’s <strong>Build mobile apps</strong> GitHub Actions workflow can be run manually for Android, iOS simulator, or both. It uploads a debug APK and/or an unsigned simulator build. It does not publish to stores, create signing credentials, or produce a signed iPhone app.</p>
+<p>Before distributing, test on real phones: finger/stylus tracing, resume after backgrounding, offline lessons, installed Malayalam voices, microphone permission and recording playback, imports/exports, and OCR/TTS through your reachable gateway. Browser tests exercise the shared UI and mock native adapters; they do not establish hardware behavior.</p>
+<p>The iOS project includes microphone usage text and a privacy manifest for plugin file timestamps and preferences. Review actual provider data handling, store privacy disclosures, signing, and release requirements for your deployment. No store account or release signing key is included.</p>
+<p>Brand assets come from <code>mobile/assets/</code>. To regenerate platform icons and splash screens after editing those sources, run <code>npm run icons --prefix mobile</code>, then sync again.</p></section>
+</main></body></html>

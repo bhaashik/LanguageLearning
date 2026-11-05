@@ -1,10 +1,11 @@
 import {ocrConfigurations,publicOCRConfig,ocrProviderRequest,parseOCRResult,ocrProviderFailure,listGeminiModels,OCRResultError} from './ocr-providers.mjs';
 import {normalizeOCRModel,genericGeminiModel} from '../ocr-settings.js';
+import {originAllowed} from './origins.mjs';
 export const ocrServerEnabled=(env=process.env)=>Object.values(ocrConfigurations(env)).some(c=>c.key||c.configured);
 export async function handleOCR(req,res,url,{env=process.env,fetcher=fetch}={}){
   if(url.pathname!=='/api/ocr')return false;
   const origin=req.headers.origin,allowed=env.BHAASA_OCR_ALLOWED_ORIGIN||env.BHAASA_TTS_ALLOWED_ORIGIN||url.origin;
-  if(origin&&origin!==allowed){res.writeHead(403).end('Origin not allowed');return true;}
+  if(!originAllowed(origin,allowed,url.origin)){res.writeHead(403).end('Origin not allowed');return true;}
   const headers={'Cache-Control':'no-store',...(origin?{'Access-Control-Allow-Origin':origin,Vary:'Origin'}:{})};
   const configurations=ocrConfigurations(env),requestedDefault=env.BHAASA_OCR_PROVIDER||'openai',defaultProvider=Object.hasOwn(configurations,requestedDefault)?requestedDefault:null;
   const defaultConfig=defaultProvider?configurations[defaultProvider]:null;

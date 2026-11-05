@@ -6,3 +6,17 @@ dist/
 .env.*
 *.log
 __pycache__/
+mobile/www/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/**/build/
+mobile/ios/App/Pods/
+mobile/ios/DerivedData/
+mobile/ios/App/App/public/
+mobile/android/app/src/main/assets/public/
+mobile/android/capacitor-cordova-android-plugins/
+mobile/ios/capacitor-cordova-ios-plugins/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision

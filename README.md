@@ -13,6 +13,20 @@ npm run dev
 
 The development server uses port 4173 (`PORT` overrides it). Any static HTTP server also serves the core app; HTTPS or localhost is required for installation, offline caching, and microphone access. Do not open `index.html` through `file://`.
 
+## Android and iOS
+
+Bhaasa includes Capacitor projects for Android and iOS. Lessons, tracing, progress, and saved audio are packaged on the device, with native Malayalam voices and file sharing. No hosting is needed for the core app. Cloud OCR/TTS require a separately reachable HTTPS gateway; your computer's `127.0.0.1` address will not work on a phone.
+
+```sh
+# Node 24; install mobile dependencies once
+npm run mobile:install
+npm run mobile:android  # Android Studio, JDK 21, SDK 36
+# On macOS with Xcode:
+npm run mobile:ios
+```
+
+See the [mobile setup guide](docs/MOBILE.html) for APK builds, iPhone signing, gateway settings, moving browser progress/audio, and the manual GitHub Actions mobile build. Android requires 7.0+ with an updated WebView; iOS requires 16.4+. Native device behavior still needs real-phone testing. The regular web build has no new dependencies.
+
 ## Learning workflow
 
 - Ten guided lessons and an unrestricted script reference: 16 vowels, 36 consonants, 14 vowel-sign examples, 6 chillus, and 32 conjuncts. The Syllables builder covers 952 base/pattern combinations, including vowel-marked conjuncts.
@@ -105,7 +119,7 @@ The gateway does not install models. Ollama/vLLM or another compatible service m
 
 Existing OpenAI settings remain supported: `BHAASA_OCR_API_KEY` and `BHAASA_OCR_MODEL`. OpenAI can also reuse `BHAASA_TTS_API_KEY` when the speech provider is OpenAI (including when unset). A provider-specific OCR key takes precedence, and another provider never borrows that key. `BHAASA_OCR_PROVIDER` sets the gateway default for legacy image-only clients; named provider choices in the app always request their selected provider explicitly.
 
-`GET /api/ocr` reports configured providers/models without exposing credentials or private upstream URLs. `POST /api/ocr` accepts `{image, provider?, model?}`, with a PNG data URL up to 1024×1024. Answer/target fields are rejected. Cross-origin use requires an exact `BHAASA_OCR_ALLOWED_ORIGIN` (or the existing `BHAASA_TTS_ALLOWED_ORIGIN`). Neither API keys nor drawings enter the public static build. Drawings are transmitted only on an explicit recognition request. OpenAI Responses requests use `store:false`; other providers apply their own data-handling policies.
+`GET /api/ocr` reports configured providers/models without exposing credentials or private upstream URLs. `POST /api/ocr` accepts `{image, provider?, model?}`, with a PNG data URL up to 1024×1024. Answer/target fields are rejected. Cross-origin use requires an exact origin in `BHAASA_OCR_ALLOWED_ORIGIN` (comma-separated for several origins) (or the existing `BHAASA_TTS_ALLOWED_ORIGIN`). Neither API keys nor drawings enter the public static build. Drawings are transmitted only on an explicit recognition request. OpenAI Responses requests use `store:false`; other providers apply their own data-handling policies.
 
 For any other OCR engine, choose **Custom OCR endpoint** and enter its URL. The browser posts only `{image}`; the endpoint must return `{text: "ക", legible: true}` or `{text: null, legible: false}`, optionally with `provider` and `model` labels. It can wrap any Malayalam OCR engine. If it requires authentication, configure its URL/key on the local Bhaasa server and point the browser's custom endpoint at `/api/ocr`, with `BHAASA_OCR_PROVIDER=custom` on that server. Direct custom endpoints must allow the app's origin via CORS. Endpoints must use HTTPS or HTTP loopback, with no credentials, query, or fragment in the URL.
 
@@ -153,7 +167,7 @@ In the cloud environment draft, `BHAASA_TTS_API_KEY` is declared as a secret sen
 | `BHAASA_TTS_MODELS` | Comma-separated allowlist for discovery/validation; defaults to `gpt-realtime-2.1-mini` |
 | `BHAASA_TTS_VOICE` | Default `marin` for OpenAI; the UI can choose other supported voices |
 | `BHAASA_TTS_URL` | REST provider URL override for legacy OpenAI/ElevenLabs; required for `custom`; use HTTPS or local loopback. OpenAI Realtime and Gemini use their fixed provider endpoints. |
-| `BHAASA_TTS_ALLOWED_ORIGIN` | Optional exact browser origin for an app hosted elsewhere; defaults to the companion’s own origin |
+| `BHAASA_TTS_ALLOWED_ORIGIN` | Optional comma-separated exact app/browser origins for an app hosted elsewhere; defaults to the companion’s own origin |
 
 OpenAI Realtime models use the server-side WebSocket adapter at `/v1/realtime`. Each reading creates one isolated session, requests an exact Malayalam reading, collects PCM output, closes the connection on completion/error/timeout, and returns 24 kHz mono WAV. The gateway uses the inherited HTTPS proxy and CA trust. API keys never enter browser JavaScript. Generated speech is AI audio and must be auditioned; exact reproduction of symbols, questions, and phonetic contrasts is not guaranteed by a generative model.
 
@@ -202,6 +216,7 @@ python3 tests/tracing.py
 python3 tests/ocr-providers.py
 python3 tests/syllables.py
 python3 tests/phonetics.py
+python3 tests/mobile.py  # Shared UI with mocked native plugins; no device required
 ```
 
 Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, microphone capture using Chromium’s test microphone, native touch tracing, and OCR provider switching/caching/cancellation. The tracing suite also needs Pillow for inspecting the ink-only OCR image. OCR uses fixture responses in tests; no paid recognition call is made. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.

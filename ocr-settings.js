@@ -1,4 +1,5 @@
 import {validateEndpoint} from './audio-store.js';
+import {defaultGateway} from './platform.js';
 export const OCR_PROVIDERS=[
   {id:'openai',label:'OpenAI'},
   {id:'gemini',label:'Google Gemini'},
@@ -8,7 +9,7 @@ export const OCR_PROVIDERS=[
   {id:'none',label:'Off · tracing only'}
 ];
 const KEY='bhaasa.ocr.preferences.v1';
-const defaultEndpoint=()=>new URL('./api/ocr',globalThis.location?.href||'http://localhost:4173/').href;
+const defaultEndpoint=()=>defaultGateway('ocr');
 export function loadOCRSettings(){
   const settings={provider:'openai',profiles:{}};
   for(const p of OCR_PROVIDERS)settings.profiles[p.id]={model:'',endpoint:p.id==='custom'?'':defaultEndpoint()};

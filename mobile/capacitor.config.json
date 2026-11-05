@@ -1,0 +1,8 @@
+{
+  "appId": "io.github.bhaashik.bhaasa",
+  "appName": "Bhaasa",
+  "webDir": "www",
+  "server": {"androidScheme": "https", "iosScheme": "capacitor", "errorPath": "webview-error.html"},
+  "ios": {"contentInset": "automatic"},
+  "android": {"allowMixedContent": false, "minWebViewVersion": 109}
+}

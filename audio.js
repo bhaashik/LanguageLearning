@@ -1,36 +1,45 @@
 import {clipKey,validateEndpoint,listClips,saveClip,deleteClip,exportAudio,importAudio} from './audio-store.js';
 import {OPENAI_DEFAULT_MODEL,OPENAI_DEFAULT_VOICE} from './speech-presets.js';
+import {nativeBridge,defaultGateway,randomId} from './platform.js';
 const PREF='bhaasa.voices.v1';
 const defaults=[{id:'device',kind:'device',name:'Device Malayalam voice',provider:'device',model:'speech-synthesis',voice:'default',gender:'unspecified'},{id:'human',kind:'recording',name:'My recordings',provider:'human',model:'microphone-or-file',voice:'my-voice',gender:'unspecified'}];
 export class AudioLibrary {
   constructor(notify){
     this.notify=notify;this.profiles=structuredClone(defaults);this.activeId='device';this.autoSave=true;this.clips=[];this.voices=[];this.playback=null;this.playURL=null;this.busy=false;this.recorder=null;this.stream=null;this.recordTarget=null;this.onChange=()=>{};
-    this.openaiPreset={model:OPENAI_DEFAULT_MODEL,voice:OPENAI_DEFAULT_VOICE,endpoint:new URL('./api/speech',globalThis.location?.href||'http://localhost:4173/').href,status:''};
+    this.openaiPreset={model:OPENAI_DEFAULT_MODEL,voice:OPENAI_DEFAULT_VOICE,endpoint:defaultGateway('speech'),status:''};
     try{const p=JSON.parse(localStorage.getItem(PREF));if(p&&Array.isArray(p.profiles)){
       this.profiles=[...defaults,...p.profiles.filter(p=>!['device','human'].includes(p.id)&&['device','service','recording'].includes(p.kind)&&['id','name','provider','model','voice'].every(k=>typeof p[k]==='string'&&p[k].length<250)&&(!p.endpoint||validateEndpoint(p.endpoint))).slice(0,50)];
       if(this.profiles.some(v=>v.id===p.activeId))this.activeId=p.activeId;this.autoSave=p.autoSave!==false;
     }}catch{/* Fall back to local defaults without blocking lessons. */}
   }
   get active(){return this.profiles.find(p=>p.id===this.activeId)||this.profiles[0];}
-  async load(){try{this.clips=await listClips();}catch(e){this.storageError=e.message;}this.refreshVoices();}
-  refreshVoices(){this.voices=(window.speechSynthesis?.getVoices()||[]).filter(v=>v.lang.toLowerCase().replace('_','-').startsWith('ml'));}
+  async load(){try{this.clips=await listClips();}catch(e){this.storageError=e.message;}await this.refreshVoices();}
+  async refreshVoices(){
+    const bridge=nativeBridge();
+    try{const voices=bridge?await bridge.getVoices():window.speechSynthesis?.getVoices()||[];this.voices=voices.filter(v=>v.lang.toLowerCase().replace('_','-').startsWith('ml'));}catch{this.voices=[];}
+    return this.voices;
+  }
   persist(){try{localStorage.setItem(PREF,JSON.stringify({profiles:this.profiles,activeId:this.activeId,autoSave:this.autoSave}));}catch{this.notify('Voice preferences could not be saved in this browser.');}}
   choose(id){if(this.profiles.some(p=>p.id===id)){this.activeId=id;this.persist();}}
   add(profile){
     if(!['service','recording','device'].includes(profile.kind)||!['name','provider','model','voice'].every(k=>typeof profile[k]==='string'&&profile[k].trim()&&profile[k].length<200))throw Error('Give this voice a name, provider, model, and voice identifier.');
     if(profile.kind==='service')profile.endpoint=validateEndpoint(profile.endpoint);
-    profile.id=crypto.randomUUID();this.profiles.push(profile);this.activeId=profile.id;this.persist();return profile;
+    profile.id=randomId();this.profiles.push(profile);this.activeId=profile.id;this.persist();return profile;
   }
   cached(target,profile=this.active){return this.clips.find(c=>c.key===clipKey(target,profile)&&c.text===target.ml);}
   async refresh(){this.clips=await listClips();this.onChange();}
   async store(target,profile,blob,origin){const clip=await saveClip(target,profile,blob,origin);await this.refresh();return clip;}
-  stopPlayback(){this.playback?.pause();if(this.playURL)URL.revokeObjectURL(this.playURL);this.playURL=null;window.speechSynthesis?.cancel();}
-  async playBlob(blob){this.stopPlayback();this.playURL=URL.createObjectURL(blob);this.playback=new Audio(this.playURL);await this.playback.play();}
+  stopPlayback(){this.playback?.pause();if(this.playURL)URL.revokeObjectURL(this.playURL);this.playURL=null;window.speechSynthesis?.cancel();return nativeBridge()?.stopSpeech().catch(()=>{});}
+  async playBlob(blob){await this.stopPlayback();this.playURL=URL.createObjectURL(blob);this.playback=new Audio(this.playURL);await this.playback.play();}
   async play(target){
     const cached=this.cached(target);if(cached){await this.playBlob(cached.blob);return;}
     const p=this.active;
     if(p.kind==='device'){
-      this.refreshVoices();const voice=p.voice==='default'?this.voices[0]:this.voices.find(v=>v.voiceURI===p.voice||v.name===p.voice);
+      await this.refreshVoices();const voice=p.voice==='default'?this.voices[0]:this.voices.find(v=>v.voiceURI===p.voice||v.name===p.voice);
+      if(nativeBridge()){
+        if(!voice)throw Error('No Malayalam device voice is installed. Install one in the device speech settings, or use recordings/a speech gateway.');
+        await this.stopPlayback();await nativeBridge().speak({text:target.ml,voice:voice.voiceURI||voice.name,lang:voice.lang});return;
+      }
       if(!voice||!window.SpeechSynthesisUtterance)throw Error('No Malayalam voice found. Open Voices & recordings to choose or add audio.');
       this.stopPlayback();const u=new SpeechSynthesisUtterance(target.ml);u.lang=voice.lang;u.voice=voice;u.rate=.8;u.onerror=()=>this.notify('Speech could not play. This device voice may require internet.');window.speechSynthesis.speak(u);return;
     }
