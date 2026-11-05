@@ -7,7 +7,7 @@ import {validateEndpoint} from './audio-store.js';
 import {defaultOpenAIVoice} from './speech-presets.js';
 import {tracingPanel,createTracingPad} from './tracing-pad.js';
 import {featureGlossary} from './phonetics.js';
-import {isNativeApp,exportFile as download,helpLinkAttributes} from './platform.js';
+import {isNativeApp,isDesktopApp,exportFile as download,helpLinkAttributes} from './platform.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -32,7 +32,7 @@ let showRecap=Boolean(resumed&&(progress.recent.length||resumed.route!=='learn')
 const initialRoute=location.hash.slice(1);
 if(!initialRoute&&resumed?.route)history.replaceState(null,'',`#${resumed.route}`);
 let audioVoices=[];
-let offlineReady=isNativeApp();
+let offlineReady=isNativeApp()||isDesktopApp();
 let installPrompt=null;
 let traceCleanup=()=>{};
 const audioTargets={...byId};
@@ -224,7 +224,8 @@ function aboutPage() {
   return `${pageHeading('A SMALL BEGINNING','A quieter way to learn.','Bhaasa is a simple, independent starting point for learning Malayalam.')}
   <div class="about-content"><section><h2>Built around your guides</h2><p>The lessons adapt the two PDFs supplied for this project: <strong>Malayalam Writing System</strong> and <strong>Malayalam in Everyday Life</strong>. The script reference follows the first guide; vocabulary, phrases, and grammar follow the second. The full documents are not bundled in the app.</p><p>Roman spellings are scholarly transliterations rather than English sound-alikes. IPA gives a broad approximation. Pronunciation, usage, and spelling conventions can vary by region and register. This first curriculum would benefit from a native Malayalam teacher’s review.</p></section>
   <section><h2>A note about sound and glosses</h2><p id="voice-note">${voiceNote()}</p><p>Choose a voice in Voices & recordings. Listen reuses a saved file for that exact provider/model/voice and content text, or uses the selected device/service voice. Device speech may require internet and cannot be captured to a file through Web Speech. Neither guide contains recordings; microphone, file imports, and connected speech services can add them.</p><p>IPA for words and sentences is a broad, spelling-based teaching approximation, not a verified transcription of natural speech. Extended Devanagari is a comparative script correspondence using ऎ, ऒ, ऴ, and ऱ. It does not equate Malayalam sounds with ordinary Hindi pronunciation. Glosses segment grammatical constructions where useful; lexical words can be unsplit, and letters are sound units rather than morphemes.</p><p>${glossLegend}</p></section>
-  <section><h2>Take it offline</h2><p id="offline-detail">${offlineReady?'The app and lessons are available offline on this device.':'The app saves its lesson files for offline use when served over HTTPS or localhost. Allow the first visit to finish loading before going offline.'}</p><p>${isNativeApp()?'Lessons and tracing are included in this installed app. Clearing app storage or uninstalling removes your local work; keep progress and audio backups.':'On a supported browser, use “Install app” or “Add to Home Screen”. On iPhone and iPad, open the site in Safari and choose Share → Add to Home Screen. Offline storage can be removed by your browser; keep progress and audio backups.'}</p><button id="install-button" class="button primary" data-action="install" ${installPrompt?'':'hidden'}>Install Bhaasa ${icon('download')}</button></section>
+  <section><h2>Take it offline</h2><p id="offline-detail">${offlineReady?'The app and lessons are available offline on this device.':'The app saves its lesson files for offline use when served over HTTPS or localhost. Allow the first visit to finish loading before going offline.'}</p><p>${isNativeApp()||isDesktopApp()?'Lessons and tracing are included in this app. Keep progress and audio backups before clearing local data.':'On a supported browser, use “Install app” or “Add to Home Screen”. On iPhone and iPad, open the site in Safari and choose Share → Add to Home Screen. Offline storage can be removed by your browser; keep progress and audio backups.'}</p><button id="install-button" class="button primary" data-action="install" ${installPrompt?'':'hidden'}>Install Bhaasa ${icon('download')}</button></section>
+  <section><h2>Linux &amp; Windows desktop apps</h2><p>The desktop package includes the lessons and a local OCR/speech gateway. It uses an installed browser, with app windows in Chrome, Edge, Chromium, or Brave, and a normal window in Firefox or your system default.</p><p><a class="button secondary" href="./docs/DESKTOP.html" ${helpLinkAttributes()}>Desktop build &amp; setup guide</a>${isDesktopApp()?' <a class="button secondary" href="/desktop/">Desktop settings</a>':''}</p></section>
   <section><h2>Android &amp; iOS apps</h2><p>The mobile build packages the same lessons, touch tracing, and progress on your device. Native device voices and file sharing are available in the installed app. Cloud OCR/speech use a reachable HTTPS gateway.</p><p><a class="button secondary" href="./docs/MOBILE.html" ${helpLinkAttributes()}>Mobile build &amp; setup guide</a></p></section><section><h2>OCR &amp; speech setup</h2><p>Connect Gemini, OpenAI, Claude, local vision engines, speech models, or human recordings. The setup guide explains model IDs, gateway addresses, keys, saved audio, and common errors.</p><p><a class="button secondary" href="./docs/PROVIDERS.html" ${helpLinkAttributes()}>Open OCR &amp; speech setup guide</a></p></section><section><h2>A notebook on your device</h2><p>Your progress stays in local storage on this device. There is no sign-in or analytics. Using device speech may involve your browser’s speech provider. Export or import your progress on the Your progress page.</p></section></div>`;
 }
 function notFound() {return `${pageHeading('A SMALL DETOUR','This page isn’t here.','Head back to your learning path to pick up where you left off.')}<a class="button primary" href="#learn">Back to learning ${icon('arrow')}</a>`;}
@@ -416,7 +417,7 @@ audio.onChange=()=>{if(route().startsWith('audio'))render();};
 audio.load().then(()=>{audioVoices=audio.voices;if(route().startsWith('audio'))render();else if($('#voice-note'))$('#voice-note').innerHTML=voiceNote();});
 window.addEventListener('pagehide',()=>{savePosition();audio.stopRecording();audio.stopPlayback();});
 window.addEventListener('bhaasa:pause',()=>{savePosition();audio.stopRecording();audio.stopPlayback();});
-if(!isNativeApp()&&'serviceWorker' in navigator) {
+if(!isNativeApp()&&!isDesktopApp()&&'serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>reg.active?.postMessage({type:'CHECK_OFFLINE'})).catch(()=>{offlineReady=false;updateConnection();});
   navigator.serviceWorker.addEventListener('message',e=>{
     if(e.data?.type==='OFFLINE_STATUS'){

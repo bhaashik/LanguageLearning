@@ -1,0 +1,12 @@
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+import {mkdir,cp,rm} from 'node:fs/promises';
+import {build} from 'esbuild';
+const desktop=fileURLToPath(new URL('../',import.meta.url)),root=path.resolve(desktop,'..');
+const run=spawnSync(process.execPath,['scripts/build.mjs'],{cwd:root,stdio:'inherit'});if(run.status!==0)process.exit(run.status||1);
+const destination=path.join(desktop,'build');await rm(destination,{recursive:true,force:true});await mkdir(destination,{recursive:true});
+await cp(path.join(root,'dist'),path.join(destination,'public'),{recursive:true});
+await cp(path.join(desktop,'src/client.js'),path.join(destination,'public/desktop-client.js'));
+await build({entryPoints:[path.join(desktop,'src/main.mjs')],outfile:path.join(destination,'main.cjs'),bundle:true,platform:'node',format:'cjs',target:'node24',nodePaths:[path.join(desktop,'node_modules')],external:['bufferutil','utf-8-validate'],legalComments:'inline'});
+console.log('Desktop server and speech transports bundled. Public web/mobile builds remain separate.');

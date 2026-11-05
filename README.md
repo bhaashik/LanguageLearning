@@ -13,7 +13,20 @@ npm run dev
 
 The development server uses port 4173 (`PORT` overrides it). Any static HTTP server also serves the core app; HTTPS or localhost is required for installation, offline caching, and microphone access. Do not open `index.html` through `file://`.
 
-## Android and iOS
+## Linux and Windows desktop
++
++The portable desktop package uses an installed browser and includes the local OCR/TTS gateway. Chrome/Edge/Chromium/Brave open an app window; Firefox and the explicit system-default option open a normal window. No hosting or separate Node installation is needed for packaged builds. Provider keys stay in a private `providers.env` file outside the executable.
++
++```sh
++# Source development and packaging require Node 24
++npm run desktop:install
++npm run desktop:start
++npm run desktop:package
++```
++
++See the [desktop setup guide](docs/DESKTOP.html) for portable Linux/Windows packages, browser selection, API setup, profiles/backups, and the manual **Build desktop apps** GitHub Actions workflow. Default address: `http://127.0.0.1:4174/`; browser/profile/port changes use separate progress stores, so export progress and audio before switching.
++
++## Android and iOS
 
 Bhaasa includes Capacitor projects for Android and iOS. Lessons, tracing, progress, and saved audio are packaged on the device, with native Malayalam voices and file sharing. No hosting is needed for the core app. Cloud OCR/TTS require a separately reachable HTTPS gateway; your computer's `127.0.0.1` address will not work on a phone.
 
@@ -217,6 +230,9 @@ python3 tests/ocr-providers.py
 python3 tests/syllables.py
 python3 tests/phonetics.py
 python3 tests/mobile.py  # Shared UI with mocked native plugins; no device required
+# With the packaged desktop app running:
+BHAASA_URL=http://127.0.0.1:4174 python3 tests/desktop.py
+node desktop/scripts/smoke.mjs  # Starts/stops its own packaged local fixture test
 ```
 
 Set `BHAASA_URL` to test another address/subpath and `BROWSER_EXECUTABLE` to select Chromium. Browser tests cover real interaction, responsive layouts, offline reload, resume, scoring, OpenAI presets/connection checks, model discovery/generation with a test service, audio caching/replacement, ZIP round-trip, microphone capture using Chromium’s test microphone, native touch tracing, and OCR provider switching/caching/cancellation. The tracing suite also needs Pillow for inspecting the ink-only OCR image. OCR uses fixture responses in tests; no paid recognition call is made. They do not establish paid-provider access, human pronunciation accuracy, or native iOS/Android installation behavior. Screenshots and downloaded fixtures go into ignored `test-results/`.

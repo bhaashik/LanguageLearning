@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import wave
 import zipfile
+from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright, expect
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -23,6 +24,18 @@ WAV=stream.getvalue()
 def nav(page,route):
     page.evaluate('(r)=>location.hash=r',route)
     page.wait_for_function('(r)=>document.body.dataset.route===r',arg=route)
+
+def desktop_wan_offline(route):
+    # A desktop app's bundled files are on its loopback server. Browser-wide
+    # network emulation would disable that too, unlike disconnecting Wi-Fi.
+    if urlsplit(route.request.url).netloc==urlsplit(BASE).netloc:route.continue_()
+    else:route.abort('internetdisconnected')
+
+def set_offline(context,page,enabled):
+    if page.evaluate('Boolean(window.BhaasaDesktop?.isDesktop)'):
+        if enabled:context.route('**/*',desktop_wan_offline)
+        else:context.unroute('**/*',desktop_wan_offline)
+    else:context.set_offline(enabled)
 
 def finish(page):
     while not page.locator('.result-card').count():
@@ -120,12 +133,12 @@ with sync_playwright() as p:
     assert len(calls)==1 and calls[0]['input']=='വെള്ളം'
     page.locator('[data-audio="play"]').click()
     assert len(calls)==1
-    context.set_offline(True)
+    set_offline(context,page,True)
     page.reload()
     expect(page.locator('.clip-row')).to_have_count(1)
     page.locator('[data-audio="play"]').click()
     assert len(calls)==1
-    context.set_offline(False)
+    set_offline(context,page,False)
     page.locator('[data-audio="generate"]').click()
     expect(page.locator('.clip-row')).to_contain_text('revision 2')
     assert len(calls)==2 and len(clips(page))==1
@@ -236,11 +249,11 @@ with sync_playwright() as p:
     op.locator('[data-audio="play"]').click()
     assert setup['calls']==1
     expect(op.locator('#offline-status')).to_have_text('Available offline')
-    openai.set_offline(True);op.reload()
+    set_offline(openai,op,True);op.reload()
     expect(op.locator('.clip-row')).to_have_count(1)
     op.locator('[data-audio="play"]').click()
     assert setup['calls']==1
-    openai.set_offline(False)
+    set_offline(openai,op,False)
     op.screenshot(path=str(OUT/'openai-setup.png'),full_page=True)
     openai.close()
     print('PASS: OpenAI presets, retirement labels, truthful connection check, WAV caching, and offline reuse')

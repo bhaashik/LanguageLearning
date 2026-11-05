@@ -20,3 +20,5 @@ mobile/ios/capacitor-cordova-ios-plugins/
 *.keystore
 *.p12
 *.mobileprovision
+desktop/build/
+desktop/out/

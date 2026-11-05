@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Linux &amp; Windows setup · Bhaasa</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f8f8f2;color:#26372e;font:16px/1.7 system-ui,sans-serif}main{max-width:960px;margin:auto;padding:32px 22px 80px}h1,h2,h3{line-height:1.3}h2{margin-top:44px;border-top:1px solid #d8dfd3;padding-top:22px}a{color:#20533e}pre{padding:18px;background:#edf0e7;border:1px solid #d9e0d1;border-radius:8px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}code{font-family:ui-monospace,monospace;font-size:.9em}li{margin:8px 0}nav a{display:inline-block;margin:4px 18px 4px 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #d9e0d1;padding:10px;text-align:left;vertical-align:top}.table-wrap{overflow:auto}@media print{body{background:white}main{max-width:none;padding:0}nav{display:none}pre{break-inside:avoid}}
+</style></head><body><main>
+<p><a href="../#about">← Back to Bhaasa</a> · <a href="PROVIDERS.html">OCR &amp; speech guide</a> · <a href="MOBILE.html">Android &amp; iOS</a></p>
+<h1>Bhaasa on Linux and Windows</h1>
+<p>The portable desktop app includes the lessons, fonts, tracing guides, and a local OCR/TTS gateway. It uses a browser already on your computer. You do not need hosting space, a separate Node.js installation, or a separately running gateway for this desktop package. Cloud generation/recognition still need internet and your own provider account.</p>
+<nav><a href="#browser">Browser choices</a><a href="#install">Install/run</a><a href="#providers">OCR &amp; speech</a><a href="#data">Progress &amp; backups</a><a href="#build">Build from source</a><a href="#troubleshooting">Troubleshooting</a></nav>
+<section id="browser"><h2>1. Browser choices</h2>
+<p>An app cannot embed arbitrary default-browser engines interchangeably. A system WebView build would use Windows WebView2 or Linux WebKitGTK. Bhaasa’s desktop package instead opens an installed browser process, which avoids shipping another browser engine.</p>
+<div class="table-wrap"><table><thead><tr><th>Choice</th><th>How it opens</th><th>Where progress/audio live</th></tr></thead><tbody>
+<tr><td>Automatic (initial setting)</td><td>Prefer a supported system default; otherwise try Chrome, Edge, Chromium, Brave, then Firefox. Fall back to the system default if none is found.</td><td>Depends on the selected browser below.</td></tr>
+<tr><td>Chrome / Edge / Chromium / Brave</td><td>A dedicated app window with less browser chrome.</td><td>That browser’s normal profile, at Bhaasa’s local address.</td></tr>
+<tr><td>Firefox</td><td>A normal Firefox window.</td><td>Your normal Firefox profile, at Bhaasa’s local address.</td></tr>
+<tr><td>System default</td><td>A normal browser window or tab using your OS preference.</td><td>Your normal browser profile, at Bhaasa’s local address.</td></tr>
+</tbody></table></div>
+<p>Change the choice in <strong>About → Desktop settings</strong>. It applies on the next launch. Use a modern browser; Chromium-family browsers should be version 109 or later. Malayalam device voices and microphone/audio support depend on that browser and your OS. Saved/imported audio and connected speech services remain available if no Malayalam device voice is installed.</p>
+<p>All choices use the browser’s normal profile, so Snap/Flatpak installations do not need access to a custom Bhaasa profile folder. Firefox has no Chrome-style app-window mode.</p></section>
+<section id="install"><h2>2. Install and run</h2>
+<p>The <strong>Build desktop apps</strong> workflow under the repository’s GitHub Actions can be run manually to produce a Linux archive and/or Windows ZIP. These are portable builds for the runner’s architecture (the supplied workflow uses x64). Extract the archive before running the app.</p>
+<h3>Linux</h3><p>Use a current Linux desktop with a supported installed browser. The included official Node runtime requires compatible system libraries (glibc 2.28 or later on x64); this build does not target Alpine/musl. In the extracted folder:</p>
+<pre>./Bhaasa
+# Optional: add an application-menu entry pointing to this executable
+./Bhaasa --install</pre>
+<p>Keep the executable at the installed location. If you move it, run <code>--install</code> again. To remove the menu entry, delete <code>~/.local/share/applications/io.github.bhaashik.bhaasa.desktop</code> (or the corresponding <code>XDG_DATA_HOME</code> path). Deleting the executable/menu entry does not delete the selected browser’s stored progress.</p>
+<h3>Windows</h3><p>Use Windows 10 or later with a supported browser. Open <strong>Start Bhaasa.vbs</strong> in the extracted folder to launch without the server console. Alternatively open <strong>Bhaasa.exe</strong> directly; this works if Windows Script Host is disabled and shows startup messages. You can create a normal Windows shortcut to either file. This is a portable ZIP rather than an MSI installer.</p>
+<h3>While running</h3><p>Bhaasa uses <code>http://127.0.0.1:4174/</code>. Settings are at <code>http://127.0.0.1:4174/desktop/</code>. It listens only on your own computer. A second launch reuses an existing compatible instance with the same data directory. Closing every Bhaasa/help/settings window stops the local server after about 30 seconds. The settings page also has an immediate quit button.</p>
+<p>Core lessons and tracing work without internet as long as the local app is running. Its files are included in the executable; browser service-worker caching is disabled for desktop builds so new versions load their packaged lessons.</p></section>
+<section id="providers"><h2>3. OCR and speech configuration</h2>
+<p>Open <strong>Desktop settings</strong> to see your private settings directory. It normally is:</p>
+<pre>Linux:   ~/.config/bhaasa/
+Windows: %APPDATA%\Bhaasa\</pre>
+<p>Create <code>providers.env</code> there. You can copy the working provider lines from your existing <code>.env.local</code>. Use the exact same <code>BHAASA_OCR_…</code> and <code>BHAASA_TTS_…</code> variables described in the <a href="PROVIDERS.html">provider guide</a>. For example, fill in your own values:</p>
+<pre>BHAASA_OCR_GEMINI_API_KEY=YOUR_GOOGLE_API_KEY
+BHAASA_OCR_GEMINI_MODEL=YOUR_AVAILABLE_IMAGE_CAPABLE_MODEL_ID
+BHAASA_TTS_PROVIDER=openai
+BHAASA_TTS_API_KEY=YOUR_OPENAI_API_KEY</pre>
+<p>Quit and restart Bhaasa after changing this file. Existing process environment values take precedence. Only provider variables are read from this file; it is not a place for arbitrary Node options.</p>
+<p>The initial OCR address is <code>http://127.0.0.1:4174/api/ocr</code>; the speech address is <code>http://127.0.0.1:4174/api/speech</code>. Select your OCR provider and use Check OCR connection, then explicitly request recognition. The package includes the OpenAI Realtime transport, so no additional <code>speech:install</code> command is needed for it.</p>
+<p>Keys stay in the local server process. They are not placed in the executable, lesson files, profile exports, or browser settings. Keep <code>providers.env</code> private. The desktop server accepts its own loopback origin; it is not a phone or public gateway. For a mobile app, follow the <a href="MOBILE.html#gateway">private HTTPS gateway instructions</a> separately.</p>
+<p>If your network requires an HTTP/HTTPS proxy, preserve your usual proxy and CA settings. Launch with <code>NODE_USE_ENV_PROXY=1</code> to enable Node’s environment-proxy support for REST requests. The OpenAI WebSocket transport uses the inherited proxy. Do not disable TLS verification.</p></section>
+<section id="data"><h2>4. Progress, recordings, and updates</h2>
+<p>Progress is in localStorage and audio in IndexedDB for the selected browser/profile and local origin. Every choice uses that browser’s normal profile. Bhaasa’s settings directory stores provider configuration, browser preference, and a startup log; it does not contain the browser’s progress or audio databases.</p>
+<p><strong>Export both progress JSON and audio ZIP before changing browser choice, port, browser profiles, or computers.</strong> Changing between automatic choices after an OS default change can also select a different profile. Imports work as in the web app. Returning to the same browser profile and port restores that profile’s existing work.</p>
+<p>Your existing browser app at <code>127.0.0.1:4173</code> uses a different origin from the desktop default at <code>127.0.0.1:4174</code>. Move existing learning using the two exports/imports. Microphone permissions and download locations are managed by the selected browser.</p>
+<p>To update, quit Bhaasa and replace its extracted executable/package while keeping the settings directory, browser choice, and port stable. No automatic updater is included. Use exports to keep portable backups; copying the executable alone does not copy progress, keys, or recordings.</p>
+<p>Advanced settings can be placed in <code>desktop.json</code>:</p><pre>{"browser":"auto","port":4174}</pre>
+<p>For nonstandard browser installations, the browser value can be a full path to a supported browser executable, without extra arguments. Command-line options override settings:</p>
+<pre>Bhaasa --browser default
+Bhaasa --browser firefox
+Bhaasa --data-dir /your/private/settings/folder
+Bhaasa --no-open
+Bhaasa --help</pre>
+<p><code>--no-open</code> keeps the local server running until stopped with Ctrl+C or the quit button. Use <code>.\Bhaasa.exe</code> in PowerShell or <code>./Bhaasa</code> in a Linux shell. <code>BHAASA_DESKTOP_BROWSER</code>, <code>BHAASA_DESKTOP_PORT</code>, and <code>BHAASA_DESKTOP_DATA_DIR</code> are optional environment equivalents.</p></section>
+<section id="build"><h2>5. Build from source</h2>
+<p>Use Node.js 24 from its official distribution, including its LICENSE file, on Linux or Windows. Run from your repository checkout:</p>
+<pre>git pull
+npm run desktop:install
+npm run desktop:start
+# To create a portable executable for the current OS/architecture:
+npm run desktop:package</pre>
+<p>Output: <code>desktop/out/Bhaasa-linux-x64/</code> or <code>desktop/out/Bhaasa-win32-x64/</code> (arm64 when built with an arm64 runtime). The executable contains Node’s runtime, the public app assets, and the local provider adapters. Download size is larger than the lesson files but avoids bundling Chromium.</p>
+<p>Packaging uses Node’s single-executable application support and postject. Build on each target OS rather than cross-compiling. <code>BHAASA_DESKTOP_NODE</code> can select a different official Node 24 executable; its architecture must match the build process. <code>BHAASA_DESKTOP_NODE_LICENSE</code> can specify its matching license file if the distribution uses a nonstandard layout. Output packages include Node and dependency license notices.</p>
+<p>The manual GitHub Actions workflow builds each platform on its native runner and uploads archives. A Linux build does not verify Windows execution, and CI/headless tests do not verify voices, microphones, or window behavior on every desktop. Windows signing and installer/store distribution are separate release work.</p>
+<p>The regular <code>npm test</code> and <code>npm run build</code> still work without desktop dependencies installed. Mobile, desktop, and public web builds share the lesson code and remain separate packages.</p></section>
+<section id="troubleshooting"><h2>6. Troubleshooting</h2><ul>
+<li><strong>No window:</strong> run the executable from a terminal to see its local address. Try <code>--browser default</code>, or open that address manually. Startup information is in <code>desktop.log</code> inside the settings directory.</li>
+<li><strong>Browser will not launch:</strong> try System default or the browser’s full executable path. Avoid launching the browser as root.</li>
+<li><strong>Port unavailable:</strong> close the program using port 4174. Bhaasa does not silently choose another port, because that would change the progress store. <code>--port NUMBER</code> is an explicit override; export first if changing an existing setup.</li>
+<li><strong>Scores/recordings seem missing:</strong> return to your previous browser/profile and port, then export and import the data into the new choice.</li>
+<li><strong>OCR/TTS not configured:</strong> check the exact provider variable names in <code>providers.env</code>, restart the desktop server, and check its connection status. The provider name is different from its exact model ID.</li>
+<li><strong>No Malayalam device voice:</strong> install one supported by the selected browser/OS, or use saved recordings or a speech gateway. The app does not substitute an English voice.</li>
+<li><strong>Server exits:</strong> all app/help/settings pages were closed or disconnected. Relaunch Bhaasa. Use <code>--no-open</code> if you intentionally want the server to stay running without an open page.</li>
+</ul></section>
+</main></body></html>

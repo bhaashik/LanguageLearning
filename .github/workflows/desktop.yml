@@ -1,0 +1,57 @@
+name: Build desktop apps
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Desktop platform
+        type: choice
+        options: [both, linux, windows]
+        default: both
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-22.04
+          - platform: windows
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        if: inputs.platform == 'both' || inputs.platform == matrix.platform
+      - uses: actions/setup-node@v4
+        if: inputs.platform == 'both' || inputs.platform == matrix.platform
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm run desktop:install
+        if: inputs.platform == 'both' || inputs.platform == matrix.platform
+      - run: npm test
+        if: inputs.platform == 'both' || inputs.platform == matrix.platform
+      - run: npm run desktop:package
+        if: inputs.platform == 'both' || inputs.platform == matrix.platform
+      - name: Verify packaged executable and local server
+        if: inputs.platform == 'both' || inputs.platform == matrix.platform
+        run: node desktop/scripts/smoke.mjs
+      - name: Archive Linux app
+        if: (inputs.platform == 'both' || inputs.platform == 'linux') && matrix.platform == 'linux'
+        run: tar -czf desktop/out/Bhaasa-linux-x64.tar.gz -C desktop/out Bhaasa-linux-x64
+      - name: Archive Windows app
+        if: (inputs.platform == 'both' || inputs.platform == 'windows') && matrix.platform == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path desktop/out/Bhaasa-win32-x64 -DestinationPath desktop/out/Bhaasa-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        if: (inputs.platform == 'both' || inputs.platform == 'linux') && matrix.platform == 'linux'
+        with:
+          name: Bhaasa-Linux-x64
+          path: desktop/out/Bhaasa-linux-x64.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: (inputs.platform == 'both' || inputs.platform == 'windows') && matrix.platform == 'windows'
+        with:
+          name: Bhaasa-Windows-x64
+          path: desktop/out/Bhaasa-windows-x64.zip

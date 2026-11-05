@@ -1,6 +1,6 @@
 {
   "name": "bhaasa-malayalam",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "A small, offline-first Malayalam learning app",
@@ -8,6 +8,9 @@
     "dev": "node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",
+    "desktop:install": "npm ci --prefix desktop --no-audit --no-fund",
+    "desktop:start": "npm run start --prefix desktop",
+    "desktop:package": "npm run package --prefix desktop",
     "mobile:install": "npm ci --prefix mobile --no-audit --no-fund",
     "mobile:build": "npm run build --prefix mobile",
     "mobile:sync": "npm run sync --prefix mobile",
