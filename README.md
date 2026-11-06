@@ -52,6 +52,12 @@ npm run mobile:ios
 
 See the [mobile setup guide](docs/MOBILE.html) for APK builds, iPhone signing, gateway settings, moving browser progress/audio, and the manual GitHub Actions mobile build. Android requires 7.0+ with an updated WebView; iOS requires 16.4+. Native device behavior still needs real-phone testing. The regular web build has no new dependencies.
 
+## In-app tester feedback with Google Sheets
+
+**Give feedback** has selectable feature results, ease-of-use and problem choices, plus optional notes. Drafts and reports save locally, work offline, and can be exported/shared. An optional Google Apps Script deployment writes responses to a private Google Sheet. No separate server or Google sign-in for testers is needed.
+
+Use the [collector template](feedback-apps-script/) and [step-by-step setup guide](docs/FEEDBACK.html). The Sheet owner deploys it under their Google account, then supplies the public `/exec` URL through feedback settings or `feedback-config.js` before building a release. No collector is preconfigured. Bhaasa waits for a verified receipt before displaying confirmed submission; retries deduplicate the same report ID. Confirm live delivery on your own Sheet and phones before distribution.
+
 ## Learning workflow
 
 - Ten Malayalam foundation lessons, sixteen additional construction lessons, and an unrestricted Malayalam script reference: 16 vowels, 36 consonants, 14 vowel-sign examples, 6 chillus, and 32 conjuncts. The Syllables builder covers 952 base/pattern combinations, including vowel-marked conjuncts.
@@ -242,6 +248,7 @@ python3 tests/ocr-providers.py
 python3 tests/syllables.py
 python3 tests/phonetics.py
 python3 tests/constructions.py
+python3 tests/feedback.py  # Local Google fixtures; no live Sheet is contacted
 python3 tests/mobile.py  # Shared UI with mocked native plugins; no device required
 # With the packaged desktop app running:
 BHAASA_URL=http://127.0.0.1:4174 python3 tests/desktop.py

@@ -11,6 +11,7 @@ import {isNativeApp,isDesktopApp,exportFile as download,helpLinkAttributes} from
 import {constructionsPage,unitRules,repetitionPanel,speakingSummary} from './course-ui.js';
 import {speakingPanel,setupSpeaking} from './speaking-ui.js';
 import {recordSpeaking,dueSpeaking} from './speech-learning.js';
+import {feedbackPage,setupFeedback} from './feedback-page.js';
 const {vowels,consonants,signs,chillus,conjuncts,scriptItems,writingItems,syllableBases,syllablePatterns,syllableForms,words,phrases,grammarItems,phoneticsItems,soundTopics,sections,lessons,allItems,byId,units,constructionItems}=catalog;
 const STORAGE_KEY=language==='ml'?MALAYALAM_STORAGE_KEY:'bhaasa.progress.fr.v2';
 const canTrace=language==='ml';
@@ -42,6 +43,7 @@ let offlineReady=isNativeApp()||isDesktopApp();
 let installPrompt=null;
 let traceCleanup=()=>{};
 let speakingCleanup=()=>{},speakingPause=()=>{};
+let feedbackCleanup=()=>{},feedbackPause=()=>{};
 const audioTargets={...byId};
 for(const l of lessons)audioTargets[`lesson-${l.id}`]={id:`lesson-${l.id}`,language,kind:'lesson',section:l.items[0].section,title:l.title,roman:l.title,ml:l.items.map(i=>i.ml).join(' … ')};
 for(const s of sections)audioTargets[`section-${s.id}`]={id:`section-${s.id}`,language,kind:'section',section:s.id,title:s.title,roman:s.title,ml:allItems.filter(i=>i.section===s.id&&i.kind!=='syllable').map(i=>i.ml).join(' … ')};
@@ -62,7 +64,7 @@ const icons={
   search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',
   download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>'
 };
-icons.phonetics=icons.sound;icons.audio=icons.sound;icons.speaking=icons.sound;icons.constructions=icons.grammar;
+icons.phonetics=icons.sound;icons.audio=icons.sound;icons.speaking=icons.sound;icons.constructions=icons.grammar;icons.feedback=icons.grammar;
 function icon(name,cls='') {return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.learn}</svg>`;}
 function toast(message) {$('#toast').textContent=message;$('#toast').classList.add('visible'); clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4500);}
 function save() {try {localStorage.setItem(STORAGE_KEY,JSON.stringify(progress));storageOK=true;} catch {storageOK=false;toast('This browser cannot save progress. Export a backup from Your progress.');}}
@@ -110,7 +112,7 @@ function recap(){
 }
 
 function shell(content,section) {
-  const nav=[['learn','Learn'],['script','Writing system'],['phonetics',`Sounds of ${languageInfo.name}`],['words','Words & phrases'],['grammar','Grammar'],['constructions','Useful constructions'],['speaking','Speak & listen'],['review','Practice'],['audio','Voices & recordings'],['progress','Your progress']];
+  const nav=[['learn','Learn'],['script','Writing system'],['phonetics',`Sounds of ${languageInfo.name}`],['words','Words & phrases'],['grammar','Grammar'],['constructions','Useful constructions'],['speaking','Speak & listen'],['review','Practice'],['audio','Voices & recordings'],['progress','Your progress'],['feedback','Give feedback']];
   return `<a class="skip" href="#main">Skip to content</a>
   <aside class="sidebar">
     <a class="brand" href="#learn" aria-label="Bhaasa home"><img src="./assets/icon.svg" alt="" width="38" height="38"><span>Bhaasa<small>A LITTLE, EVERY DAY</small></span></a>
@@ -246,6 +248,7 @@ function notFound() {return `${pageHeading('A SMALL DETOUR','This page isn’t h
 
 function render(focus=false) {
   traceCleanup();speakingCleanup();speakingCleanup=()=>{};speakingPause=()=>{};
+  feedbackCleanup();feedbackCleanup=()=>{};feedbackPause=()=>{};
   const [page,id]=route().split('/');
   let content,section=page;
   switch(page) {
@@ -261,12 +264,14 @@ function render(focus=false) {
     case 'item':section=byId[id]?.kind==='construction'?'constructions':['word','phrase'].includes(byId[id]?.kind)?'words':'script';content=itemPage(id);break;
     case 'review':content=reviewPage();break;
     case 'progress':content=progressPage();break;
+    case 'feedback':content=feedbackPage(language,languageInfo.name);break;
     case 'about':content=aboutPage();section='';break;
     default:content=notFound();
   }
   $('#app').innerHTML=shell(content,section);
   document.body.dataset.route=route();
-  document.title=`${({learn:'Learn',script:'Writing system',words:'Words & phrases',grammar:'Grammar',phonetics:`Sounds of ${languageInfo.name}`,constructions:'Useful constructions',speaking:'Speak & listen',audio:'Voices & recordings',lesson:'Lesson',item:'Explore & write',review:'Practice',progress:'Your progress',about:'About'})[page]||'Learn'} · Bhaasa`;
+  document.title=`${({learn:'Learn',script:'Writing system',words:'Words & phrases',grammar:'Grammar',phonetics:`Sounds of ${languageInfo.name}`,constructions:'Useful constructions',speaking:'Speak & listen',audio:'Voices & recordings',lesson:'Lesson',item:'Explore & write',review:'Practice',progress:'Your progress',feedback:'Give feedback',about:'About'})[page]||'Learn'} · Bhaasa`;
+  if(page==='feedback'){const control=setupFeedback(language);feedbackCleanup=control.cleanup;feedbackPause=control.pause;}
   if(page==='item'&&byId[id]&&$('#writing-canvas'))setupCanvas(byId[id]);
   if(page==='speaking'&&$('#speech-record')){const target=byId[$('#speaking-target').value];const control=setupSpeaking({item:target,locale:languageInfo.locale,audio,notify:toast,onResult:result=>{progress=recordSpeaking(progress,target.id,result);save();if($('#speaking-score'))$('#speaking-score').innerHTML=speakingSummary(progress);}});speakingCleanup=control.cleanup;speakingPause=control.pause;}
   if(focus){$('#main').focus({preventScroll:true});window.scrollTo(0,0);}
@@ -434,8 +439,8 @@ updateVoices();window.speechSynthesis?.addEventListener('voiceschanged',updateVo
 render();
 audio.onChange=()=>{if(route().startsWith('audio'))render();};
 audio.load().then(()=>{audioVoices=audio.voices;if(route().startsWith('audio'))render();else if($('#voice-note'))$('#voice-note').innerHTML=voiceNote();});
-window.addEventListener('pagehide',()=>{speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
-window.addEventListener('bhaasa:pause',()=>{speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
+window.addEventListener('pagehide',()=>{feedbackPause();speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
+window.addEventListener('bhaasa:pause',()=>{feedbackPause();speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
 if(!isNativeApp()&&!isDesktopApp()&&'serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>reg.active?.postMessage({type:'CHECK_OFFLINE'})).catch(()=>{offlineReady=false;updateConnection();});
   navigator.serviceWorker.addEventListener('message',e=>{

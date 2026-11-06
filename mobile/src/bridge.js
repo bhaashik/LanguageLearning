@@ -27,7 +27,7 @@ export function createBridge({Capacitor,Filesystem,Share,TextToSpeech,Directory}
         if(start===0)await Filesystem.writeFile({...options,recursive:true});else await Filesystem.appendFile(options);
       }
       const {uri}=await Filesystem.getUri({directory:Directory.Cache,path});
-      await Share.share({title:'Bhaasa backup',files:[uri],dialogTitle:'Save or share your Bhaasa backup'});
+      await Share.share({title:'Bhaasa export',files:[uri],dialogTitle:'Save or share from Bhaasa'});
       return {shared:true};
     }
   };
