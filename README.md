@@ -1,5 +1,7 @@
 # Bhaasa · Sounds, scripts, and everyday language
 
+**Linux download:** [Bhaasa 0.7.1 for Linux x64 (42 MB)](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/linux-downloads/v0.7.1/Bhaasa-linux-x64.tar.gz). Extract the archive and run `Bhaasa`; no separate Node.js installation is needed. [Download checksums and instructions](https://github.com/bhaashik/LanguageLearning/tree/linux-downloads). Use a GitHub account with repository access if prompted to sign in.
+
 Bhaasa teaches Malayalam and French. The Malayalam foundation started from the two learning guides supplied for this project. The core app is static HTML, CSS, and JavaScript with no runtime packages or backend requirement. Progress and recordings stay on the learner’s device. New speech generation is optional and can use a separately connected service.
 
 ## Run
