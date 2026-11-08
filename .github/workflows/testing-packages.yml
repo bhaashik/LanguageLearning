@@ -95,15 +95,26 @@ jobs:
       - run: npm test 2>&1 | tee -a "$BHAASA_BUILD_LOG"
       - run: npm run mobile:sync 2>&1 | tee -a "$BHAASA_BUILD_LOG"
       - name: Build unsigned iPhone and iPad archive
-        run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -sdk iphoneos -destination 'generic/platform=iOS' -configuration Release -archivePath mobile/ios/archives/Bhaasa.xcarchive CODE_SIGNING_ALLOWED=NO archive 2>&1 | tee -a "$BHAASA_BUILD_LOG"
+        run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -sdk iphoneos -destination 'generic/platform=iOS' -configuration Release -archivePath "$GITHUB_WORKSPACE/mobile/ios/archives/Bhaasa.xcarchive" CODE_SIGNING_ALLOWED=NO archive 2>&1 | tee -a "$BHAASA_BUILD_LOG"
       - name: Check device app and packaged lessons
         run: |
-          test -f mobile/ios/archives/Bhaasa.xcarchive/Products/Applications/App.app/App
-          test -f mobile/ios/archives/Bhaasa.xcarchive/Products/Applications/App.app/public/feedback-page.js
-          lipo -verify_arch arm64 mobile/ios/archives/Bhaasa.xcarchive/Products/Applications/App.app/App
+          {
+            archive="$GITHUB_WORKSPACE/mobile/ios/archives/Bhaasa.xcarchive"
+            ls -ld "$archive"
+            app_path=$(/usr/libexec/PlistBuddy -c 'Print:ApplicationProperties:ApplicationPath' "$archive/Info.plist")
+            app="$archive/Products/$app_path"
+            for file in "$app/App" "$app/public/index.html" "$app/public/feedback-page.js"; do
+              if ! test -f "$file"; then
+                echo "Missing archive file: $file"
+                find "$archive" -maxdepth 5 -type d
+                exit 1
+              fi
+            done
+            lipo "$app/App" -verify_arch arm64
+          } 2>&1 | tee -a "$BHAASA_BUILD_LOG"
       - name: Package unsigned device archive
-        run: ditto -c -k --sequesterRsrc --keepParent mobile/ios/archives/Bhaasa.xcarchive mobile/Bhaasa-iOS-unsigned.xcarchive.zip
-      - run: node scripts/publish-testing-package.mjs ios ready mobile/Bhaasa-iOS-unsigned.xcarchive.zip
+        run: ditto -c -k --sequesterRsrc --keepParent "$GITHUB_WORKSPACE/mobile/ios/archives/Bhaasa.xcarchive" "$GITHUB_WORKSPACE/mobile/Bhaasa-iOS-unsigned.xcarchive.zip" 2>&1 | tee -a "$BHAASA_BUILD_LOG"
+      - run: node scripts/publish-testing-package.mjs ios ready mobile/Bhaasa-iOS-unsigned.xcarchive.zip 2>&1 | tee -a "$BHAASA_BUILD_LOG"
         env:
           BHAASA_PACKAGE_ARCH: arm64 (iPhone/iPad, unsigned)
       - name: Record failed build
