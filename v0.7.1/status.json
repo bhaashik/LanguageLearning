@@ -1,6 +1,12 @@
 {
-  "platform": "android",
   "version": "0.7.1",
-  "state": "queued",
-  "sourceCommit": "b749215ee0d237f3fcb345072cbc2ccb17982e30"
+  "platform": "android",
+  "state": "ready",
+  "sourceCommit": "c1deab38a13b6ebc1601b731728179645bea89f8",
+  "updatedAt": "2026-11-08T07:29:49.721Z",
+  "runURL": null,
+  "architecture": null,
+  "file": "Bhaasa-Android-debug.apk",
+  "bytes": 5338375,
+  "sha256": "174db8eca5df61cb7aa557e2c32fef0b5996aa8dbf77f8bc3d0df77d8b0f0e0a"
 }
