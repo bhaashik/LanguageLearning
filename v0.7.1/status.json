@@ -1,9 +1,9 @@
 {
   "version": "0.7.1",
   "platform": "ios",
-  "state": "failed",
-  "sourceCommit": "c1deab38a13b6ebc1601b731728179645bea89f8",
-  "updatedAt": "2026-11-08T07:30:40.907Z",
-  "runURL": "https://github.com/bhaashik/LanguageLearning/actions/runs/42459005884",
+  "state": "building",
+  "sourceCommit": "09de403f7ca757b0415ab1f4dd736b30e7ce4d51",
+  "updatedAt": "2026-11-08T07:40:06.208Z",
+  "runURL": "https://github.com/bhaashik/LanguageLearning/actions/runs/42459715332",
   "architecture": null
 }
