@@ -4,12 +4,14 @@ No Google deployment, spreadsheet, or paid speech/vision API is contacted.
 import json
 import os
 import shutil
+from pathlib import Path
 from urllib.parse import parse_qs,quote,urlsplit
 from playwright.sync_api import sync_playwright, expect
 
 BASE=os.environ.get('BHAASA_URL','http://127.0.0.1:4173/').rstrip('/')+'/'
 URL='https://script.google.com/macros/s/test-deployment/exec'
 KEY='bhaasa.feedback.v1'
+VERSION=json.loads((Path(__file__).resolve().parents[1]/'package.json').read_text())['version']
 
 def nav(page,route):
     page.evaluate('(r)=>location.hash=r',route)
@@ -33,7 +35,7 @@ with sync_playwright() as p:
         payload=json.loads(parse_qs(route.request.post_data)['payload'][0]);calls.append(payload)
         assert set(payload)=={'requestId','report'}
         report=payload['report'];assert set(report)=={'id','createdAt','appVersion','language','platform','system','answers'}
-        assert report['id']!=payload['requestId'];assert report['appVersion']=='0.7.1'
+        assert report['id']!=payload['requestId'];assert report['appVersion']==VERSION
         duplicate=report['id'] in rows;rows[report['id']]=report
         if mode['value']=='error':
             result={'ok':False,'code':'write_failed'}

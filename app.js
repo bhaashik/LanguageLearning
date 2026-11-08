@@ -12,6 +12,8 @@ import {constructionsPage,unitRules,repetitionPanel,speakingSummary} from './cou
 import {speakingPanel,setupSpeaking} from './speaking-ui.js';
 import {recordSpeaking,dueSpeaking} from './speech-learning.js';
 import {feedbackPage,setupFeedback} from './feedback-page.js';
+import {connectionsPage,setupConnections} from './connections-ui.js';
+import {gatewayJSON} from './gateway.js';
 const {vowels,consonants,signs,chillus,conjuncts,scriptItems,writingItems,syllableBases,syllablePatterns,syllableForms,words,phrases,grammarItems,phoneticsItems,soundTopics,sections,lessons,allItems,byId,units,constructionItems}=catalog;
 const STORAGE_KEY=language==='ml'?MALAYALAM_STORAGE_KEY:'bhaasa.progress.fr.v2';
 const canTrace=language==='ml';
@@ -44,6 +46,7 @@ let installPrompt=null;
 let traceCleanup=()=>{};
 let speakingCleanup=()=>{},speakingPause=()=>{};
 let feedbackCleanup=()=>{},feedbackPause=()=>{};
+let connectionsCleanup=()=>{};
 const audioTargets={...byId};
 for(const l of lessons)audioTargets[`lesson-${l.id}`]={id:`lesson-${l.id}`,language,kind:'lesson',section:l.items[0].section,title:l.title,roman:l.title,ml:l.items.map(i=>i.ml).join(' … ')};
 for(const s of sections)audioTargets[`section-${s.id}`]={id:`section-${s.id}`,language,kind:'section',section:s.id,title:s.title,roman:s.title,ml:allItems.filter(i=>i.section===s.id&&i.kind!=='syllable').map(i=>i.ml).join(' … ')};
@@ -64,7 +67,7 @@ const icons={
   search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',
   download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>'
 };
-icons.phonetics=icons.sound;icons.audio=icons.sound;icons.speaking=icons.sound;icons.constructions=icons.grammar;icons.feedback=icons.grammar;
+icons.phonetics=icons.sound;icons.audio=icons.sound;icons.speaking=icons.sound;icons.constructions=icons.grammar;icons.feedback=icons.grammar;icons.connections=icons.grammar;
 function icon(name,cls='') {return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.learn}</svg>`;}
 function toast(message) {$('#toast').textContent=message;$('#toast').classList.add('visible'); clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4500);}
 function save() {try {localStorage.setItem(STORAGE_KEY,JSON.stringify(progress));storageOK=true;} catch {storageOK=false;toast('This browser cannot save progress. Export a backup from Your progress.');}}
@@ -112,7 +115,7 @@ function recap(){
 }
 
 function shell(content,section) {
-  const nav=[['learn','Learn'],['script','Writing system'],['phonetics',`Sounds of ${languageInfo.name}`],['words','Words & phrases'],['grammar','Grammar'],['constructions','Useful constructions'],['speaking','Speak & listen'],['review','Practice'],['audio','Voices & recordings'],['progress','Your progress'],['feedback','Give feedback']];
+  const nav=[['learn','Learn'],['script','Writing system'],['phonetics',`Sounds of ${languageInfo.name}`],['words','Words & phrases'],['grammar','Grammar'],['constructions','Useful constructions'],['speaking','Speak & listen'],['review','Practice'],['audio','Voices & recordings'],['connections','Connections & models'],['progress','Your progress'],['feedback','Give feedback']];
   return `<a class="skip" href="#main">Skip to content</a>
   <aside class="sidebar">
     <a class="brand" href="#learn" aria-label="Bhaasa home"><img src="./assets/icon.svg" alt="" width="38" height="38"><span>Bhaasa<small>A LITTLE, EVERY DAY</small></span></a>
@@ -249,6 +252,7 @@ function notFound() {return `${pageHeading('A SMALL DETOUR','This page isn’t h
 function render(focus=false) {
   traceCleanup();speakingCleanup();speakingCleanup=()=>{};speakingPause=()=>{};
   feedbackCleanup();feedbackCleanup=()=>{};feedbackPause=()=>{};
+  connectionsCleanup();connectionsCleanup=()=>{};
   const [page,id]=route().split('/');
   let content,section=page;
   switch(page) {
@@ -265,12 +269,14 @@ function render(focus=false) {
     case 'review':content=reviewPage();break;
     case 'progress':content=progressPage();break;
     case 'feedback':content=feedbackPage(language,languageInfo.name);break;
+    case 'connections':content=connectionsPage(languageInfo.name);break;
     case 'about':content=aboutPage();section='';break;
     default:content=notFound();
   }
   $('#app').innerHTML=shell(content,section);
   document.body.dataset.route=route();
-  document.title=`${({learn:'Learn',script:'Writing system',words:'Words & phrases',grammar:'Grammar',phonetics:`Sounds of ${languageInfo.name}`,constructions:'Useful constructions',speaking:'Speak & listen',audio:'Voices & recordings',lesson:'Lesson',item:'Explore & write',review:'Practice',progress:'Your progress',feedback:'Give feedback',about:'About'})[page]||'Learn'} · Bhaasa`;
+  document.title=`${({learn:'Learn',script:'Writing system',words:'Words & phrases',grammar:'Grammar',phonetics:`Sounds of ${languageInfo.name}`,constructions:'Useful constructions',speaking:'Speak & listen',audio:'Voices & recordings',lesson:'Lesson',item:'Explore & write',review:'Practice',progress:'Your progress',feedback:'Give feedback',connections:'Connections & models',about:'About'})[page]||'Learn'} · Bhaasa`;
+  if(page==='connections')connectionsCleanup=setupConnections({audio,language,languageName:languageInfo.name,notify:toast});
   if(page==='feedback'){const control=setupFeedback(language);feedbackCleanup=control.cleanup;feedbackPause=control.pause;}
   if(page==='item'&&byId[id]&&$('#writing-canvas'))setupCanvas(byId[id]);
   if(page==='speaking'&&$('#speech-record')){const target=byId[$('#speaking-target').value];const control=setupSpeaking({item:target,locale:languageInfo.locale,audio,notify:toast,onResult:result=>{progress=recordSpeaking(progress,target.id,result);save();if($('#speaking-score'))$('#speaking-score').innerHTML=speakingSummary(progress);}});speakingCleanup=control.cleanup;speakingPause=control.pause;}
@@ -327,12 +333,10 @@ async function handleAudioClick(button){
         render();toast(`OpenAI ${profile.voice} selected. Connect its gateway before generating new audio.`);break;
       }
       case 'openai-check':{
-        const preset=audio.openaiPreset;const endpoint=validateEndpoint(preset.endpoint);
+        const preset=audio.openaiPreset;
         preset.status='Checking the OpenAI gateway…';render();
         try{
-          const response=await fetch(`${endpoint}/models`,{signal:AbortSignal.timeout(12000)});
-          if(!response.ok)throw Error(`Gateway returned HTTP ${response.status}. Run or connect the OpenAI speech gateway; GitHub Pages cannot run it.`);
-          const data=await response.json();
+          const data=await gatewayJSON(preset.endpoint,{models:true});
           if(data.provider!=='openai')throw Error('This gateway is not configured for OpenAI. Set BHAASA_TTS_PROVIDER=openai on its server.');
           if(!data.configured){preset.status='OpenAI is not connected. Add BHAASA_TTS_API_KEY securely on the gateway server, then restart it. Do not paste an API key into this app.';}
           else if(!Array.isArray(data.models)||!data.models.some(m=>m.id===preset.model)){preset.status=`The gateway has a credential configured, but ${preset.model} is not enabled. Update its BHAASA_TTS_MODELS allowlist.`;}
@@ -346,16 +350,16 @@ async function handleAudioClick(button){
       case 'stop':audio.stopRecording();break;
       case 'export':await download(await audio.export($('#audio-export-scope')?.value||'all',target),`bhaasa-${languageInfo.name.toLowerCase()}-audio.zip`);break;
       case 'discover':{
-        const endpoint=validateEndpoint($('#voice-form').elements.endpoint.value);
+        try{
+        const endpoint=$('#voice-form').elements.endpoint.value;
         $('#model-status').textContent='Checking the connected service…';
-        const response=await fetch(`${endpoint}/models`,{signal:AbortSignal.timeout(12000)});
-        if(!response.ok)throw Error(`No model list received (HTTP ${response.status}). Run or connect a speech gateway; GitHub Pages only serves the app.`);
-        const data=await response.json();if(!Array.isArray(data.models))throw Error('The service must return a models array.');
+        const data=await gatewayJSON(endpoint,{models:true});if(!Array.isArray(data.models))throw Error('The service must return a models array.');
         const models=data.models.filter(m=>typeof m.id==='string'&&m.id.length<200).slice(0,100);
         $('#model-list').innerHTML=models.map(m=>`<option value="${esc(m.id)}">${esc(m.provider||'speech model')}</option>`).join('');
         const voices=models.flatMap(m=>Array.isArray(m.voices)?m.voices:[]).filter(v=>typeof v.id==='string'&&v.id.length<200);
         $('#service-voice-list').innerHTML=voices.slice(0,200).map(v=>`<option value="${esc(v.id)}">${esc(v.name||v.id)} · ${esc(v.gender||'unspecified')}</option>`).join('');
-        $('#model-status').textContent=`${models.length} configured speech models reported. Choose their IDs or enter another supported model and voice. Availability and ${languageInfo.name} quality depend on the provider.`;break;
+        $('#model-status').textContent=`${models.length} configured speech models reported. Choose their IDs or enter another supported model and voice. Availability and ${languageInfo.name} quality depend on the provider.`;
+        }catch(error){$('#model-status').textContent=error.message;}break;
       }
     }
   }catch(e){toast(e.message);if($('#model-status'))$('#model-status').textContent=e.message;}

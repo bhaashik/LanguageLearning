@@ -1,5 +1,6 @@
 import {validateEndpoint} from './audio-store.js';
 import {defaultGateway} from './platform.js';
+import {restoreGateway} from './gateway.js';
 export const OCR_PROVIDERS=[
   {id:'openai',label:'OpenAI'},
   {id:'gemini',label:'Google Gemini'},
@@ -17,8 +18,8 @@ export function loadOCRSettings(){
     const saved=JSON.parse(localStorage.getItem(KEY));
     if(saved&&OCR_PROVIDERS.some(p=>p.id===saved.provider))settings.provider=saved.provider;
     for(const p of OCR_PROVIDERS){const value=saved?.profiles?.[p.id];if(!value)continue;
-      const endpoint=value.endpoint?validateEndpoint(value.endpoint):'';
-      settings.profiles[p.id]={endpoint:endpoint||(p.id==='custom'?'':defaultEndpoint()),model:typeof value.model==='string'?value.model.slice(0,150):''};
+      const endpoint=restoreGateway(value.endpoint,'ocr');
+      settings.profiles[p.id]={endpoint,model:typeof value.model==='string'?value.model.slice(0,150):''};
     }
     if(!saved){const old=localStorage.getItem('bhaasa.ocr.gateway');if(old)settings.profiles.openai.endpoint=validateEndpoint(old);}
   }catch{/* Keep safe defaults; a malformed saved preference must not block drawing. */}

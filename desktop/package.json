@@ -1,6 +1,6 @@
 {
   "name": "bhaasa-desktop",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
   "type": "module",
   "description": "Portable Bhaasa desktop app using an installed browser",

@@ -1,6 +1,7 @@
 import {clipKey,validateEndpoint,listClips,saveClip,deleteClip,exportAudio,importAudio} from './audio-store.js';
 import {OPENAI_DEFAULT_MODEL,OPENAI_DEFAULT_VOICE} from './speech-presets.js';
 import {nativeBridge,defaultGateway,randomId} from './platform.js';
+import {restoreGateway} from './gateway.js';
 const PREF='bhaasa.voices.v1';
 const defaults=[{id:'device',kind:'device',name:'Device Malayalam voice',provider:'device',model:'speech-synthesis',voice:'default',gender:'unspecified'},{id:'human',kind:'recording',name:'My recordings',provider:'human',model:'microphone-or-file',voice:'my-voice',gender:'unspecified'}];
 export class AudioLibrary {
@@ -9,9 +10,11 @@ export class AudioLibrary {
     this.notify=notify;this.profiles=structuredClone(this.defaults);this.activeId='device';this.autoSave=true;this.clips=[];this.voices=[];this.playback=null;this.playURL=null;this.busy=false;this.recorder=null;this.stream=null;this.recordTarget=null;this.onChange=()=>{};
     this.openaiPreset={model:OPENAI_DEFAULT_MODEL,voice:OPENAI_DEFAULT_VOICE,endpoint:defaultGateway('speech'),status:''};
     try{const p=JSON.parse(localStorage.getItem(this.prefKey));if(p&&Array.isArray(p.profiles)){
-      this.profiles=[...this.defaults,...p.profiles.filter(p=>!['device','human'].includes(p.id)&&['device','service','recording'].includes(p.kind)&&['id','name','provider','model','voice'].every(k=>typeof p[k]==='string'&&p[k].length<250)&&(!p.endpoint||validateEndpoint(p.endpoint))).slice(0,50)];
+      this.profiles=[...this.defaults,...p.profiles.filter(p=>!['device','human'].includes(p.id)&&['device','service','recording'].includes(p.kind)&&['id','name','provider','model','voice'].every(k=>typeof p[k]==='string'&&p[k].length<250)).slice(0,50).map(p=>({...p,...(p.kind==='service'?{endpoint:restoreGateway(p.endpoint,'speech')}:{})}))];
       if(this.profiles.some(v=>v.id===p.activeId))this.activeId=p.activeId;this.autoSave=p.autoSave!==false;
     }}catch{/* Fall back to local defaults without blocking lessons. */}
+    const selected=this.active,openai=selected.kind==='service'&&selected.provider==='openai'?selected:[...this.profiles].reverse().find(p=>p.kind==='service'&&p.provider==='openai');
+    if(openai)this.openaiPreset={...this.openaiPreset,endpoint:openai.endpoint||'',model:openai.model,voice:openai.voice};
   }
   get active(){return this.profiles.find(p=>p.id===this.activeId)||this.profiles[0];}
   async languageClips(){return (await listClips()).filter(c=>(c.language||'ml')===this.language);}

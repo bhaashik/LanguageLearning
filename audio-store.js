@@ -1,10 +1,11 @@
 import {packZip,unpackZip} from './zip.js';
-import {isNativeApp} from './platform.js';
+import {isNativeApp,isPagesApp,isPagesGateway,isMobileBrowser} from './platform.js';
 export const clipKey=(target,profile)=>JSON.stringify([target.language||'ml',target.section,target.kind,target.id,profile.provider,profile.model,profile.voice]);
 export function validateEndpoint(value) {
-  if(isNativeApp()&&!value?.trim())throw Error('Enter the HTTPS address of your OCR or speech gateway. The mobile app does not include the Node server.');
+  if(typeof value!=='string'||!value.trim())throw Error('Enter your gateway address in Connections & models. Cloud OCR, speech, and model discovery need a reachable server.');
   const u=new URL(value,globalThis.location?.href||'http://localhost');
-  if(isNativeApp()&&(u.protocol!=='https:'||['localhost','127.0.0.1','[::1]'].includes(u.hostname)))throw Error('Use a reachable HTTPS gateway. localhost and 127.0.0.1 refer to this phone, not your computer.');
+  if((isNativeApp()||isPagesApp()&&isMobileBrowser())&&(u.protocol!=='https:'||['localhost','127.0.0.1','[::1]'].includes(u.hostname)))throw Error(isNativeApp()?'Use a reachable HTTPS gateway. localhost and 127.0.0.1 refer to this phone, not your computer.':'Use a reachable HTTPS gateway. localhost and 127.0.0.1 refer to this iPad/device, not your desktop computer.');
+  if(isPagesGateway(u.href))throw Error('GitHub Pages hosts the app files; it cannot run OCR, TTS, ASR, or model discovery. Enter your separate HTTPS gateway address.');
   if(u.username||u.password||u.search||u.hash||!(u.protocol==='https:'||(u.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(u.hostname))))throw Error('Use an HTTPS gateway, or a local HTTP service. Do not put keys in its URL.');
   return u.href.replace(/\/$/,'');
 }

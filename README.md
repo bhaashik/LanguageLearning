@@ -16,6 +16,8 @@ Bhaasa teaches Malayalam and French. The Malayalam foundation started from the t
 
 ## Run
 
+The web app's **Connections & models** page provides selectable OCR, TTS, and ASR models and TTS voices. GitHub Pages starts without pretend API URLs; cloud services need a separate reachable HTTPS gateway, while device voices/recordings and tracing can work without one. [iPad/web gateway setup](docs/PROVIDERS.html#ipad-web) explains the three independent checks and CORS origin settings. This browser's settings do not transfer from a desktop automatically.
+
 With Node.js 20.12+ (Node 24 recommended):
 
 ```sh
@@ -260,6 +262,7 @@ python3 tests/ocr-providers.py
 python3 tests/syllables.py
 python3 tests/phonetics.py
 python3 tests/constructions.py
+python3 tests/connections.py  # Public-host and iPad-sized UI with local model fixtures
 python3 tests/feedback.py  # Local Google fixtures; no live Sheet is contacted
 python3 tests/mobile.py  # Shared UI with mocked native plugins; no device required
 # With the packaged desktop app running:

@@ -8,7 +8,7 @@ import {chooseBrowser,openBrowser} from './browser.mjs';
 import {createDesktopServer,APP_ID} from './server.mjs';
 import {settingsPage} from './settings.mjs';
 import {installLinux} from './install-linux.mjs';
-const VERSION='0.7.1';
+const VERSION='0.7.2';
 
 function probe(port,instanceId){return new Promise(resolve=>{
   // This probe is strictly loopback, never an outbound provider request.
