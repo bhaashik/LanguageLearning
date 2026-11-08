@@ -1,9 +1,12 @@
 {
   "version": "0.7.1",
   "platform": "ios",
-  "state": "building",
+  "state": "ready",
   "sourceCommit": "63095619234784002c2340799f7abaf9b9dff86d",
-  "updatedAt": "2026-11-08T07:43:23.677Z",
+  "updatedAt": "2026-11-08T07:44:04.125Z",
   "runURL": "https://github.com/bhaashik/LanguageLearning/actions/runs/42459936851",
-  "architecture": null
+  "architecture": "arm64 (iPhone/iPad, unsigned)",
+  "file": "Bhaasa-iOS-unsigned.xcarchive.zip",
+  "bytes": 4754253,
+  "sha256": "e5659f63ec91ec22aab9cd444b7df9cd2fb7a47f644d619a4fb494acf1c6c8ec"
 }
