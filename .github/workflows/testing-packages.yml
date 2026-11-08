@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: Package to build (iOS is simulator-only)
+        description: Package to build (iOS is an unsigned device archive)
         type: choice
         options: [all, windows, android, ios]
         default: all
@@ -80,6 +80,8 @@ jobs:
     timeout-minutes: 35
     permissions:
       contents: write
+    env:
+      BHAASA_BUILD_LOG: ${{ runner.temp }}/bhaasa-ios-build.log
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -89,21 +91,21 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - run: node scripts/publish-testing-package.mjs ios building
       - run: xcodebuild -version
-      - run: npm run mobile:install
-      - run: npm test
-      - run: npm run mobile:sync
-      - name: Build iOS simulator app (both Mac architectures)
-        run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -configuration Debug -derivedDataPath mobile/ios/DerivedData CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' build
-      - name: Check simulator app and packaged lessons
+      - run: npm run mobile:install 2>&1 | tee "$BHAASA_BUILD_LOG"
+      - run: npm test 2>&1 | tee -a "$BHAASA_BUILD_LOG"
+      - run: npm run mobile:sync 2>&1 | tee -a "$BHAASA_BUILD_LOG"
+      - name: Build unsigned iPhone and iPad archive
+        run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -sdk iphoneos -destination 'generic/platform=iOS' -configuration Release -archivePath mobile/ios/archives/Bhaasa.xcarchive CODE_SIGNING_ALLOWED=NO archive 2>&1 | tee -a "$BHAASA_BUILD_LOG"
+      - name: Check device app and packaged lessons
         run: |
-          test -f mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/App
-          test -f mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/public/feedback-page.js
-          lipo -verify_arch arm64 x86_64 mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/App
-      - name: Archive simulator app
-        run: ditto -c -k --sequesterRsrc --keepParent mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app mobile/Bhaasa-iOS-simulator.zip
-      - run: node scripts/publish-testing-package.mjs ios ready mobile/Bhaasa-iOS-simulator.zip
+          test -f mobile/ios/archives/Bhaasa.xcarchive/Products/Applications/App.app/App
+          test -f mobile/ios/archives/Bhaasa.xcarchive/Products/Applications/App.app/public/feedback-page.js
+          lipo -verify_arch arm64 mobile/ios/archives/Bhaasa.xcarchive/Products/Applications/App.app/App
+      - name: Package unsigned device archive
+        run: ditto -c -k --sequesterRsrc --keepParent mobile/ios/archives/Bhaasa.xcarchive mobile/Bhaasa-iOS-unsigned.xcarchive.zip
+      - run: node scripts/publish-testing-package.mjs ios ready mobile/Bhaasa-iOS-unsigned.xcarchive.zip
         env:
-          BHAASA_PACKAGE_ARCH: arm64,x86_64 (simulator only)
+          BHAASA_PACKAGE_ARCH: arm64 (iPhone/iPad, unsigned)
       - name: Record failed build
         if: failure()
         run: node scripts/publish-testing-package.mjs ios failed

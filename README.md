@@ -2,6 +2,16 @@
 
 **Linux download:** [Bhaasa 0.7.1 for Linux x64 (42 MB)](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/linux-downloads/v0.7.1/Bhaasa-linux-x64.tar.gz). Extract the archive and run `Bhaasa`; no separate Node.js installation is needed. [Download checksums and instructions](https://github.com/bhaashik/LanguageLearning/tree/linux-downloads). Use a GitHub account with repository access if prompted to sign in.
 
+Other version 0.7.1 test packages:
+
+| Platform | Download | Testing requirements |
+| --- | --- | --- |
+| Windows x64 | [Portable ZIP](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/windows-downloads/v0.7.1/Bhaasa-windows-x64.zip) · [Checksum and instructions](https://github.com/bhaashik/LanguageLearning/tree/windows-downloads) | Windows 10+, installed browser; extract before opening Start Bhaasa.vbs or Bhaasa.exe. |
+| Android | [Test APK](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/android-downloads/v0.7.1/Bhaasa-Android-debug.apk) · [Checksum and instructions](https://github.com/bhaashik/LanguageLearning/tree/android-downloads) | Android 7.0+, updated WebView; allow installation from the download source. Debug-signed for testing. |
+| iPhone/iPad signing archive | [Build status and archive](https://github.com/bhaashik/LanguageLearning/tree/ios-downloads) | Unsigned device archive for Apple signing in Xcode. It cannot be installed directly; device testing needs your signing identity or TestFlight. |
+
+The **Publish test packages** GitHub Actions workflow builds Windows and the unsigned iPhone/iPad archive on native runners and publishes checked files to their download branches. Its manual run also supports rebuilding Android. Each download page includes build status, the source commit, instructions, and SHA-256 checksums once ready. These downloads remain available independently of Actions artifact retention.
+
 Bhaasa teaches Malayalam and French. The Malayalam foundation started from the two learning guides supplied for this project. The core app is static HTML, CSS, and JavaScript with no runtime packages or backend requirement. Progress and recordings stay on the learner’s device. New speech generation is optional and can use a separately connected service.
 
 ## Run

@@ -12,6 +12,8 @@ mobile/android/local.properties
 mobile/android/**/build/
 mobile/ios/App/Pods/
 mobile/ios/DerivedData/
+mobile/ios/archives/
+mobile/Bhaasa-iOS-unsigned.xcarchive.zip
 mobile/ios/App/App/public/
 mobile/android/app/src/main/assets/public/
 mobile/android/capacitor-cordova-android-plugins/

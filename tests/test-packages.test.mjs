@@ -25,9 +25,11 @@ test('test-package publishing preserves source HEAD and publishes exact bytes, r
     const stored=execFileSync('git',['show','windows-downloads:v0.7.1/Bhaasa-windows-x64.zip'],{cwd:remote});assert.deepEqual(stored,bytes);
     assert.match(git(remote,'show','windows-downloads:v0.7.1/SHA256SUMS'),new RegExp('^'+status.sha256));
     assert.match(git(remote,'show','windows-downloads:README.md'),/Download Bhaasa Windows x64/);
-    await publishTestingPackage({platform:'windows',state:'failed',repoRoot:root,environment});
+    const log=path.join(root,'compile.log');await writeFile(log,'Compiler error\n'+'ghp_'+'x'.repeat(30));
+    await publishTestingPackage({platform:'windows',state:'failed',repoRoot:root,environment:{...environment,BHAASA_BUILD_LOG:log}});
     assert.equal(JSON.parse(git(remote,'show','windows-downloads:v0.7.1/status.json')).state,'failed');
     assert.match(git(remote,'show','windows-downloads:README.md'),/build failed/);
+    const errorLog=git(remote,'show','windows-downloads:v0.7.1/build-error.txt');assert.match(errorLog,/Compiler error/);assert.match(errorLog,/redacted/);assert.ok(!errorLog.includes('x'.repeat(30)));
     assert.equal(git(root,'worktree','list','--porcelain').match(/^worktree /gm).length,1);
   }finally{await rm(folder,{recursive:true,force:true});}
 });

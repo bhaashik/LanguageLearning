@@ -3,7 +3,7 @@
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import os from 'node:os';
-import {mkdtemp,mkdir,readFile,writeFile,copyFile,stat,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,readFile,writeFile,copyFile,stat,rm,open} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
@@ -11,7 +11,7 @@ import {execFileSync} from 'node:child_process';
 const configurations={
   windows:{branch:'windows-downloads',name:'Bhaasa Windows x64',filename:'Bhaasa-windows-x64.zip',instructions:'Extract the ZIP completely, then open **Start Bhaasa.vbs** or **Bhaasa.exe** inside the folder. Requires Windows 10 or later, a 64-bit Intel/AMD processor, and a modern installed browser. This is an unsigned portable test build; no separate Node.js installation is needed.'},
   android:{branch:'android-downloads',name:'Bhaasa Android test APK',filename:'Bhaasa-Android-debug.apk',instructions:'Download the APK on your Android phone and open it. Allow installation from that source when Android asks. Requires Android 7.0+ and an updated Android System WebView. This is a debug-signed test build, not a Play Store release. Export progress and audio before changing between APKs signed on different computers or CI runs; Android cannot update an installed app using a different signing identity.'},
-  ios:{branch:'ios-downloads',name:'Bhaasa iOS simulator',filename:'Bhaasa-iOS-simulator.zip',instructions:'**For Xcode’s iOS Simulator on a Mac only. This is not an installable iPhone/iPad IPA.** Extract the ZIP, boot a compatible simulator in Xcode, then drag App.app into its window. Alternatively use `xcrun simctl install booted App.app` and `xcrun simctl launch booted io.github.bhaashik.bhaasa`. An actual iPhone/iPad install needs your Apple development signing, or TestFlight distribution under your Apple Developer account.'}
+  ios:{branch:'ios-downloads',name:'Bhaasa iPhone/iPad archive (unsigned)',filename:'Bhaasa-iOS-unsigned.xcarchive.zip',instructions:'**For Apple signing in Xcode on a Mac. This unsigned archive cannot be installed directly on an iPhone/iPad.** Extract the ZIP and open Bhaasa.xcarchive in Xcode Organizer. Export/distribute it using your Apple team’s signing identity and provisioning setup, or use the source project to run on your own connected device. TestFlight distribution requires Apple Developer Program membership. No signing certificate, provisioning profile, Apple account, or App Store Connect credential is included.'}
 };
 const repository='bhaashik/LanguageLearning';
 const root=fileURLToPath(new URL('../',import.meta.url));
@@ -43,6 +43,15 @@ export async function publishTestingPackage({platform,state,artifact,repoRoot=ro
     if(file){
       await copyFile(file.source,path.join(destination,file.name));
       await writeFile(path.join(destination,'SHA256SUMS'),`${file.sha256}  ${file.name}\n`);
+    }
+    if(state==='failed'&&environment.BHAASA_BUILD_LOG){
+      let log;
+      try{
+        log=await open(environment.BHAASA_BUILD_LOG,'r');const size=(await log.stat()).size,buffer=Buffer.alloc(Math.min(size,12000));
+        await log.read(buffer,0,buffer.length,Math.max(0,size-buffer.length));
+        const text=buffer.toString('utf8').replace(/(?:github_pat_[\w]+|gh[pousr]_[\w]{20,})/g,'[redacted]');
+        await writeFile(path.join(destination,'build-error.txt'),text);status.errorLog='build-error.txt';
+      }catch{}finally{await log?.close();}
     }
     await writeFile(path.join(destination,'status.json'),JSON.stringify(status,null,2)+'\n');
     const base=`https://github.com/${repository}/raw/refs/heads/${config.branch}/v${version}`;
