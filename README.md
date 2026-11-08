@@ -1,6 +1,6 @@
 # Bhaasa iPhone/iPad archive (unsigned) test downloads
 
-The build is running. A download link will appear here after its checks pass.
+The build failed; no new package has been published.
 
 **For Apple signing in Xcode on a Mac. This unsigned archive cannot be installed directly on an iPhone/iPad.** Extract the ZIP and open Bhaasa.xcarchive in Xcode Organizer. Export/distribute it using your Apple team’s signing identity and provisioning setup, or use the source project to run on your own connected device. TestFlight distribution requires Apple Developer Program membership. No signing certificate, provisioning profile, Apple account, or App Store Connect credential is included.
 
