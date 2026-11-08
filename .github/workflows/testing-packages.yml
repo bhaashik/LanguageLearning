@@ -1,0 +1,109 @@
+name: Publish test packages
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/testing-packages.yml
+      - scripts/publish-testing-package.mjs
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Package to build (iOS is simulator-only)
+        type: choice
+        options: [all, windows, android, ios]
+        default: all
+permissions:
+  contents: read
+concurrency:
+  group: test-packages-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'windows'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: node scripts/publish-testing-package.mjs windows building
+      - run: npm run desktop:install
+      - run: npm test
+      - run: npm run desktop:package
+      - run: node desktop/scripts/smoke.mjs
+      - name: Archive Windows portable app
+        shell: pwsh
+        run: Compress-Archive -Path desktop/out/Bhaasa-win32-x64 -DestinationPath desktop/out/Bhaasa-windows-x64.zip
+      - run: node scripts/publish-testing-package.mjs windows ready desktop/out/Bhaasa-windows-x64.zip
+        env:
+          BHAASA_PACKAGE_ARCH: x64
+      - name: Record failed build
+        if: failure()
+        run: node scripts/publish-testing-package.mjs windows failed
+  android:
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'all' || inputs.platform == 'android')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: node scripts/publish-testing-package.mjs android building
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - run: npm run mobile:install
+      - run: npm test
+      - run: npm run mobile:sync
+      - run: ./gradlew --no-daemon assembleDebug
+        working-directory: mobile/android
+      - run: node scripts/publish-testing-package.mjs android ready mobile/android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Record failed build
+        if: failure()
+        run: node scripts/publish-testing-package.mjs android failed
+  ios:
+    if: github.event_name == 'push' || inputs.platform == 'all' || inputs.platform == 'ios'
+    runs-on: macos-latest
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: node scripts/publish-testing-package.mjs ios building
+      - run: xcodebuild -version
+      - run: npm run mobile:install
+      - run: npm test
+      - run: npm run mobile:sync
+      - name: Build iOS simulator app (both Mac architectures)
+        run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -configuration Debug -derivedDataPath mobile/ios/DerivedData CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' build
+      - name: Check simulator app and packaged lessons
+        run: |
+          test -f mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/App
+          test -f mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/public/feedback-page.js
+          lipo -verify_arch arm64 x86_64 mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/App
+      - name: Archive simulator app
+        run: ditto -c -k --sequesterRsrc --keepParent mobile/ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app mobile/Bhaasa-iOS-simulator.zip
+      - run: node scripts/publish-testing-package.mjs ios ready mobile/Bhaasa-iOS-simulator.zip
+        env:
+          BHAASA_PACKAGE_ARCH: arm64,x86_64 (simulator only)
+      - name: Record failed build
+        if: failure()
+        run: node scripts/publish-testing-package.mjs ios failed
