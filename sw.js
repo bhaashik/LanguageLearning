@@ -1,5 +1,5 @@
 const BASE=new URL('./',self.location.href);
-const CACHE=`bhaasa-${BASE.pathname}-v18`;
+const CACHE=`bhaasa-${BASE.pathname}-v19`;
 const ASSETS=['./gateway.js','./connections-ui.js','./feedback-config.js','./feedback.js','./feedback-transport.js','./feedback-page.js','./docs/FEEDBACK.html','./catalog.js','./course-content.js','./courses-ml.js','./courses-fr.js','./french.js','./repetition.js','./speech-learning.js','./course-ui.js','./asr.js','./speaking-ui.js','./','./index.html','./platform.js','./styles.css','./app.js','./content.js','./learning.js','./linguistics.js','./phonetics.js','./sounds.js','./audio.js','./audio-store.js','./audio-ui.js','./speech-presets.js','./ocr-settings.js','./tracing.js','./tracing-pad.js','./data/tracing-guides.json','./zip.js','./manifest.webmanifest','./docs/PROVIDERS.html','./docs/MOBILE.html','./docs/DESKTOP.html','./docs/SPEAKING.html','./assets/icon.svg','./assets/icon-192.png','./assets/icon-512.png','./assets/malayalam.ttf','./assets/devanagari.ttf'];
 const urls=ASSETS.map(p=>new URL(p,BASE).href);
 self.addEventListener('install',event=>event.waitUntil((async()=>{

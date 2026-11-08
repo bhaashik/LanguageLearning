@@ -18,8 +18,7 @@
 <h2>3. Connect Bhaasa</h2>
 <p>To try it on one device, open <strong>Give feedback → Feedback collection settings</strong>, paste the <code>/exec</code> URL, and select <strong>Save collector setting</strong>. Submit a test response. Verify both <strong>Collector confirmed receipt</strong> in Bhaasa and the new row in the Sheet’s <strong>Bhaasa feedback</strong> tab.</p>
 <p>For testers to receive the setting automatically, edit <code>feedback-config.js</code> before building/publishing:</p>
-<pre>export const APP_VERSION='0.7.1';
-export const FEEDBACK_COLLECTOR_URL='https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';</pre>
+<pre>export const FEEDBACK_COLLECTOR_URL='https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';</pre>
 <p>The deployment URL is public. It is safe to include in a build; it is not a secret or an API key. Distribute a new static/mobile/desktop build after changing it. A saved device override takes precedence; choose <strong>Use release setting</strong> to remove that override. To disable central sending on a device, save an empty URL.</p>
 <p>When updating the script later, use <strong>Deploy → Manage deployments → Edit → New version → Deploy</strong> to keep the same URL. Saving the source alone does not update an existing versioned deployment.</p>
 <h2>4. What is saved and sent?</h2>

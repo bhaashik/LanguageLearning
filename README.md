@@ -1,11 +1,14 @@
 # Bhaasa · Sounds, scripts, and everyday language
 
-**Linux download:** [Bhaasa 0.7.1 for Linux x64 (42 MB)](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/linux-downloads/v0.7.1/Bhaasa-linux-x64.tar.gz). Extract the archive and run `Bhaasa`; no separate Node.js installation is needed. [Download checksums and instructions](https://github.com/bhaashik/LanguageLearning/tree/linux-downloads). Use a GitHub account with repository access if prompted to sign in.
+**Current source and web app: v0.7.2.** The `main` branch includes the iPad Connections & models fixes. [Open the current web app](https://bhaashik.github.io/LanguageLearning/) or run/build this checkout from source. The source version is recorded in [package.json](package.json).
 
-Other version 0.7.1 test packages:
+## Downloadable test builds — v0.7.1
+
+The prebuilt packages below are still **v0.7.1**. They were uploaded before the v0.7.2 source/web update and have not been rebuilt with its new connection controls. Their version labels describe the downloaded files; they do not describe the current `main` checkout.
 
 | Platform | Download | Testing requirements |
 | --- | --- | --- |
+| Linux x64 | [Portable archive (42 MB)](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/linux-downloads/v0.7.1/Bhaasa-linux-x64.tar.gz) · [Checksum and instructions](https://github.com/bhaashik/LanguageLearning/tree/linux-downloads) | Extract and run Bhaasa; installed browser required, no separate Node.js installation needed. |
 | Windows x64 | [Portable ZIP](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/windows-downloads/v0.7.1/Bhaasa-windows-x64.zip) · [Checksum and instructions](https://github.com/bhaashik/LanguageLearning/tree/windows-downloads) | Windows 10+, installed browser; extract before opening Start Bhaasa.vbs or Bhaasa.exe. |
 | Android | [Test APK](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/android-downloads/v0.7.1/Bhaasa-Android-debug.apk) · [Checksum and instructions](https://github.com/bhaashik/LanguageLearning/tree/android-downloads) | Android 7.0+, updated WebView; allow installation from the download source. Debug-signed for testing. |
 | iPhone/iPad signing archive | [Unsigned archive ZIP](https://github.com/bhaashik/LanguageLearning/raw/refs/heads/ios-downloads/v0.7.1/Bhaasa-iOS-unsigned.xcarchive.zip) · [Checksum and instructions](https://github.com/bhaashik/LanguageLearning/tree/ios-downloads) | Compiled ARM64 device archive for Apple signing in Xcode. It cannot be installed directly; device testing needs your signing identity or TestFlight. |
@@ -18,10 +21,10 @@ Bhaasa teaches Malayalam and French. The Malayalam foundation started from the t
 
 The web app's **Connections & models** page provides selectable OCR, TTS, and ASR models and TTS voices. GitHub Pages starts without pretend API URLs; cloud services need a separate reachable HTTPS gateway, while device voices/recordings and tracing can work without one. [iPad/web gateway setup](docs/PROVIDERS.html#ipad-web) explains the three independent checks and CORS origin settings. This browser's settings do not transfer from a desktop automatically.
 
-With Node.js 20.12+ (Node 24 recommended):
+With Node.js 20.12+ (Node 24 recommended), from the cloned repository directory:
 
 ```sh
-cd /workspace/LanguageLearning
+node -p "require('./package.json').version"
 npm run dev
 ```
 
