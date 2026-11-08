@@ -1,7 +1,7 @@
 import {fitGuide,smoothPath,resample,pathLength,bounds,meaningfulInk,evaluateTrace,recognitionMatches} from './tracing.js';
 import {validateEndpoint} from './audio-store.js';
 import {isNativeApp,isPagesApp,exportFile as download,helpLinkAttributes,randomId} from './platform.js';
-import {gatewayJSON} from './gateway.js';
+import {gatewayJSON,gatewayHeaders} from './gateway.js';
 import {OCR_PROVIDERS,loadOCRSettings,saveOCRSettings,ocrSelection,ocrRecognitionKey,recognitionPayload,providerLabel,normalizeOCRModel,ocrErrorMessage} from './ocr-settings.js';
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let guideData;
@@ -134,7 +134,7 @@ export function createTracingPad({item,script,saved,onDraft,onCheck,onRecognitio
       catalogBusy=true;button.disabled=true;status.textContent='Asking Google for its model list. No drawing is being sent…';
       try{
         const url=new URL(validateEndpoint(config.endpoint));url.searchParams.set('action','models');url.searchParams.set('provider','gemini');
-        const response=await fetch(url,{signal:AbortSignal.timeout(25000)});let data;try{data=await response.json();}catch{}
+        const response=await fetch(url,{signal:AbortSignal.timeout(25000),headers:gatewayHeaders(url.href),redirect:'error'});if(response.status===401)throw Error('Save the gateway access token in Connections & models, then try again.');let data;try{data=await response.json();}catch{}
         if(!alive||ocrRecognitionKey(ocrSelection(ocrSettings))!==key)return;
         if(!response.ok)throw Error(ocrErrorMessage(response.status,data,'gemini'));
         if(data?.provider!=='gemini'||!Array.isArray(data.models)||typeof data.configuredModelListed!=='boolean')throw Error('This gateway cannot list Gemini API models. Update and restart the local Bhaasa server.');
@@ -175,7 +175,8 @@ export function createTracingPad({item,script,saved,onDraft,onCheck,onRecognitio
         if(!config.endpoint)throw Error('Set the OCR gateway in the connection settings first.');
         const endpoint=validateEndpoint(config.endpoint);
         abort=new AbortController();const timer=setTimeout(()=>abort?.abort(),45000);
-        let response;try{response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(recognitionPayload(inkImage(strokes,width,height),config)),signal:abort.signal});}finally{clearTimeout(timer);}
+        let response;try{response=await fetch(endpoint,{method:'POST',headers:gatewayHeaders(endpoint,{'Content-Type':'application/json'}),redirect:'error',body:JSON.stringify(recognitionPayload(inkImage(strokes,width,height),config)),signal:abort.signal});}finally{clearTimeout(timer);}
+        if(response.status===401)throw Error('Save the gateway access token in Connections & models, then try again.');
         if(!response.ok){let body;try{body=await response.json();}catch{}throw Error(ocrErrorMessage(response.status,body,config.provider));}
         const result=await response.json();if(!alive)return;
         if(submitted!==revision){notify('Your drawing changed during recognition. Check the new drawing again.');return;}

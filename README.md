@@ -94,6 +94,10 @@ Content details and limitations are in [docs/CONTENT.md](docs/CONTENT.md). Word/
 
 The [OCR & speech setup guide](docs/PROVIDERS.html) covers OpenAI, Gemini, Claude, ElevenLabs, local vision engines, and custom OCR/TTS adapters, with environment examples, field mappings, recording/import workflows, and troubleshooting. Open it from About, the tracing settings, or Voices & recordings. The readable/printable HTML document is included in the static build and cached for offline reading.
 
+## Firebase and Gemini cloud gateway
+
+Keep the web app on GitHub Pages and deploy the Gemini OCR, TTS, and ASR gateway to your Firebase project. The [Firebase setup guide](docs/FIREBASE.html) covers project/API access, Blaze billing, Secret Manager, exact model IDs, deployment, allowed origins, and connecting each platform. The [deployment template](firebase/) reuses the existing adapters and requires a separate session gateway token; provider keys stay on the server. Initial browser testing works with **Connections & models → Private test gateway access**. Existing v0.7.1 native downloads need rebuilding to include those controls.
+
 ## Curved tracing and handwriting recognition
 
 Open **Writing system**, choose a symbol, and use **Trace. Flow. Remember.**

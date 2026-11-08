@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultGateway,isPagesApp,isMobileBrowser} from '../platform.js';
 import {validateEndpoint} from '../audio-store.js';
-import {gatewayJSON,restoreGateway,requestTimeout} from '../gateway.js';
+import {gatewayJSON,restoreGateway,requestTimeout,gatewayHeaders,gatewayAccess,setGatewayAccess,clearGatewayAccess} from '../gateway.js';
 import {loadOCRSettings} from '../ocr-settings.js';
 import {loadASRSettings} from '../asr.js';
 import {AudioLibrary} from '../audio.js';
@@ -54,4 +54,19 @@ test('request cancellation and timeout work without AbortSignal.any or AbortSign
     const expired=requestTimeout(undefined,10);await new Promise(resolve=>expired.signal.addEventListener('abort',resolve,{once:true}));assert.equal(expired.expired(),true);expired.cleanup();
     const result=await gatewayJSON('https://fixture.example/api/ocr',{fetcher:async()=>Response.json({providers:[]})});assert.deepEqual(result.providers,[]);
   }finally{AbortSignal.any=any;AbortSignal.timeout=timeout;}
+});
+test('gateway access token is scoped to exact function routes and cleared without altering settings',async()=>{
+  const savedSession=globalThis.sessionStorage,values=new Map();
+  globalThis.sessionStorage={getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  const token='test_random_gateway_token_'.padEnd(64,'a'),base='https://cloud.example/bhaasaApi';
+  try{
+    clearGatewayAccess();setGatewayAccess(base,token);assert.deepEqual(gatewayAccess(),{base,configured:true});
+    assert.equal([...values.values()].length,1);
+    for(const path of ['/api/ocr','/api/ocr?action=models&provider=gemini','/api/speech','/api/speech/models','/api/transcribe'])assert.equal(gatewayHeaders(base+path)['X-Bhaasa-Gateway-Token'],token);
+    for(const url of ['https://other.example/bhaasaApi/api/ocr','http://cloud.example/bhaasaApi/api/ocr','https://cloud.example/another/api/ocr','https://cloud.example/bhaasaApi/api/ocr/extra','https://cloud.example/bhaasaApiExtra/api/ocr','https://cloud.example/bhaasaApi/docs'])assert.deepEqual(gatewayHeaders(url,{Accept:'application/json'}),{Accept:'application/json'});
+    await gatewayJSON(base+'/api/ocr',{fetcher:async(_url,options)=>{assert.equal(options.headers['X-Bhaasa-Gateway-Token'],token);assert.equal(options.redirect,'error');return Response.json({providers:[]});}});
+    await assert.rejects(gatewayJSON(base+'/api/ocr',{fetcher:async()=>Response.json({error:'gateway_access_required'},{status:401})}),/separate access token/);
+    assert.throws(()=>setGatewayAccess(base+'/api/ocr',token),/base URL/);assert.throws(()=>setGatewayAccess(base,'short'),/separate gateway access token/);
+    clearGatewayAccess();assert.equal(values.size,0);assert.deepEqual(gatewayHeaders(base+'/api/ocr'),{});
+  }finally{clearGatewayAccess();if(savedSession===undefined)delete globalThis.sessionStorage;else globalThis.sessionStorage=savedSession;}
 });

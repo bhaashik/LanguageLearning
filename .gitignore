@@ -24,3 +24,6 @@ mobile/ios/capacitor-cordova-ios-plugins/
 *.mobileprovision
 desktop/build/
 desktop/out/
+firebase/functions/lib/
+firebase/.firebase/
+firebase/functions/.secret.local

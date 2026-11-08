@@ -16,6 +16,7 @@ ROOT=Path(__file__).resolve().parents[1]
 LOCAL=os.environ.get('BHAASA_URL','http://127.0.0.1:4181/').rstrip('/')+'/'
 PUBLIC='https://bhaashik.github.io/LanguageLearning/'
 GATEWAY='https://gateway.bhaasa.test'
+ACCESS='browser_test_gateway_token_'.ljust(64,'x')
 TARGET=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import {getCatalog} from './catalog.js';console.log(JSON.stringify(getCatalog('ml').units[0].items[0]));"],cwd=ROOT))
 stream=io.BytesIO()
 with wave.open(stream,'wb') as wav:
@@ -49,11 +50,16 @@ with sync_playwright() as p:
         route.fulfill(content_type=mimetypes.guess_type(target)[0] or 'application/octet-stream',body=target.read_bytes())
     def gateway(route):
         request=route.request;path=urlsplit(request.url).path
-        headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,Accept','Access-Control-Allow-Methods':'GET,POST,OPTIONS'}
+        headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,Accept,X-Bhaasa-Gateway-Token','Access-Control-Allow-Methods':'GET,POST,OPTIONS'}
         if request.method=='OPTIONS':route.fulfill(status=204,headers=headers);return
+        if request.headers.get('x-bhaasa-gateway-token')!=ACCESS:
+            route.fulfill(status=401,json={'error':'gateway_access_required'},headers=headers);return
         calls.append({'method':request.method,'path':path,'body':request.post_data_json if request.method=='POST' else None})
         if request.method=='POST':
             body=request.post_data_json
+            if path=='/api/ocr':
+                assert set(body)=={'image','provider','model'} and body['provider']=='gemini'
+                route.fulfill(json={'text':'അ','legible':True,'provider':'gemini','model':'vision-b'},headers=headers);return
             if path=='/api/speech':
                 assert body['provider']=='gemini' and body['model']=='tts-b' and body['voice']=='voice-b'
                 assert body['language']=='ml-IN';route.fulfill(content_type='audio/wav',body=WAV,headers=headers);return
@@ -79,6 +85,12 @@ with sync_playwright() as p:
     print('PASS: tablet model controls visible, old static URLs removed, saved provider retained, no pretend Pages API calls')
 
     page.locator('#connection-base').fill(GATEWAY);page.locator('#connection-fill').click()
+    page.locator('#connection-ocr-discover').click();expect(page.locator('#connection-ocr-status')).to_contain_text('access was refused')
+    page.locator('#connection-token').locator('..').locator('..').evaluate('e=>e.open=true')
+    page.locator('#connection-token').fill(ACCESS);page.locator('#connection-access-save').click()
+    expect(page.locator('#connection-token')).to_have_value('')
+    expect(page.locator('#connection-access-status')).to_contain_text('Access saved')
+    assert ACCESS not in page.evaluate('JSON.stringify(localStorage)')
     page.locator('#connection-tts-provider').select_option('gemini')
     for kind in ['ocr','tts','asr']:
         expect(page.locator('#connection-'+kind+'-endpoint')).to_have_value(GATEWAY+'/api/'+{'ocr':'ocr','tts':'speech','asr':'transcribe'}[kind])
@@ -95,6 +107,11 @@ with sync_playwright() as p:
 
     nav(page,'item/vel-0');expect(page.locator('#ocr-model')).to_have_value('vision-b')
     expect(page.locator('#ocr-endpoint')).to_have_value(GATEWAY+'/api/ocr')
+    expect(page.locator('#trace-plan')).to_contain_text('Suggested guide:')
+    canvas=page.locator('#writing-canvas');canvas.scroll_into_view_if_needed();box=canvas.bounding_box()
+    page.mouse.move(box['x']+box['width']*.25,box['y']+box['height']*.4);page.mouse.down()
+    page.mouse.move(box['x']+box['width']*.75,box['y']+box['height']*.6,steps=25);page.mouse.up()
+    page.locator('#check-handwriting').click();expect(page.locator('#ocr-feedback')).to_contain_text('vision-b')
     nav(page,'speaking/'+TARGET['id']);expect(page.locator('#speech-model')).to_have_value('asr-b')
     expect(page.locator('#speech-endpoint')).to_have_value(GATEWAY+'/api/transcribe')
     expect(page.locator('.speech-settings')).to_have_attribute('open','')
@@ -119,6 +136,12 @@ with sync_playwright() as p:
     print('PASS: HTML, HTTP, CORS, stale-response cancellation and invalid static API addresses have clear outcomes')
 
     page.reload();expect(page.locator('#connection-ocr-endpoint')).to_have_value(GATEWAY+'/api/ocr')
+    expect(page.locator('#connection-access-status')).to_contain_text('Access saved')
+    page.locator('#connection-ocr-discover').click();expect(page.locator('#connection-ocr-status')).to_contain_text('2 configured model(s)')
+    page.locator('#connection-token').locator('..').locator('..').evaluate('e=>e.open=true')
+    page.locator('#connection-access-clear').click()
+    page.locator('#connection-ocr-discover').click();expect(page.locator('#connection-ocr-status')).to_contain_text('access was refused')
+    page.locator('#connection-token').fill(ACCESS);page.locator('#connection-access-save').click()
     page.locator('#language-choice').select_option('fr');page.wait_for_function("document.querySelector('#language-choice').value==='fr'")
     nav(page,'connections')
     expect(page.locator('#connection-tts-provider')).to_have_value('device')
@@ -138,4 +161,5 @@ with sync_playwright() as p:
     expect(desktop.locator('#connection-ocr-provider')).to_have_value('openai')
     assert not errors,errors
     print('PASS: language-specific voices, settings survive reload, portrait/landscape layouts, and unchanged desktop localhost defaults')
+    print('PASS: protected gateway discovery, OCR, TTS and ASR carry scoped access; reload retains session access and Forget access removes it')
     browser.close()

@@ -9,6 +9,7 @@ await cp(`${root}data`,`${root}dist/data`,{recursive:true});
 await mkdir(`${root}dist/docs`);
 await copyFile(`${root}docs/CONTENT.md`,`${root}dist/docs/CONTENT.md`);
 await copyFile(`${root}docs/PROVIDERS.html`,`${root}dist/docs/PROVIDERS.html`);
+await copyFile(`${root}docs/FIREBASE.html`,`${root}dist/docs/FIREBASE.html`);
 await copyFile(`${root}docs/MOBILE.html`,`${root}dist/docs/MOBILE.html`);
 await copyFile(`${root}docs/DESKTOP.html`,`${root}dist/docs/DESKTOP.html`);
 await copyFile(`${root}docs/SPEAKING.html`,`${root}dist/docs/SPEAKING.html`);

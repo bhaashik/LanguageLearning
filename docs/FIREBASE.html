@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bhaasa · Firebase and Gemini setup</title>
+<style>body{font:17px/1.6 system-ui,sans-serif;color:#24342d;background:#fafbf8;max-width:940px;margin:32px auto;padding:0 20px}h1,h2,h3{line-height:1.25}a{color:#126748}pre{background:#eaf1eb;padding:16px;overflow:auto;border-radius:10px}code{font-size:.9em;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%}th,td{text-align:left;border-bottom:1px solid #ccd9cf;padding:10px;vertical-align:top}.table{overflow:auto}section{margin:36px 0}.note{border-left:4px solid #287e56;padding:12px 18px;background:#edf5ef}@media print{body{max-width:none;background:white}pre{white-space:pre-wrap}a{color:inherit}}</style></head>
+<body><p><a href="../index.html#connections">← Connections &amp; models</a> · <a href="PROVIDERS.html">Other providers</a></p>
+<h1>Use Gemini through Firebase</h1>
+<p>Keep Bhaasa on GitHub Pages and deploy only its model gateway to Firebase Cloud Functions. The same HTTPS gateway can serve the browser, Linux, Windows, Android, and iOS versions. Start with your browser; no change to GitHub Pages hosting is needed.</p>
+<p><strong>Flow:</strong> Bhaasa → your HTTPS Firebase function → Gemini Developer API. The Gemini key stays in Google Secret Manager. Enabling an API or creating a Firebase web app does not deploy these Bhaasa endpoints.</p>
+<h2>If Firebase AI Logic says “Unregistered”</h2>
+<p>For an existing web app such as <strong>bhaashik-web-gateway</strong>, first check the column/label: <strong>App Check → Unregistered</strong> means the app has not registered an attestation provider. The app itself can already be registered with Firebase. Go to <strong>Firebase Console → App Check → Apps</strong>, select the existing web app, and choose <strong>reCAPTCHA Enterprise</strong>. Create a website key in Google Cloud’s reCAPTCHA console, allow <code>bhaashik.github.io</code> (no scheme or repository path), and register its key ID in App Check. The public reCAPTCHA website key is different from the private Gemini API key. See <a href="https://firebase.google.com/docs/app-check/web/recaptcha-enterprise-provider">Firebase’s web App Check guide</a>.</p>
+<p><strong>Keep App Check enforcement off until the client SDK sends valid tokens.</strong> Bhaasa does not currently include Firebase AI Logic or App Check client SDKs. Registering the app/provider alone cannot connect it. Using AI Logic’s managed proxy directly requires that client integration, Firebase web configuration, and App Check setup; it is a different route from the Cloud Functions template below.</p>
+<p>The template below is an optional bridge for Bhaasa’s existing gateway protocol and <strong>requires Blaze billing</strong>. It does not use Firebase AI Logic’s managed proxy and does not require App Check registration. Its separate gateway token protects requests; Firebase AI Logic enforcement does not protect a custom Cloud Function automatically. You do not have to register a second Firebase web app or turn on Firebase Hosting to use this bridge.</p>
+<p class="note">This template is for your initial private testing. It requires a separate gateway access token on every configuration/generation request. CORS alone does not control API spending. Share that token only with trusted testers. For wider distribution, add per-user authentication, rate limits/quotas, and abuse protection; Firebase AI Logic/App Check is a separate possible integration, not something this template automatically enables.</p>
+
+<section id="project"><h2>1. Prepare your Google project and key</h2>
+<ol>
+<li>In <a href="https://console.firebase.google.com/">Firebase Console</a>, open your project. Under <strong>Project settings → General</strong>, copy the <strong>Project ID</strong>, not the app ID or project display name. Use that ID wherever <code>YOUR_PROJECT_ID</code> appears below.</li>
+<li>Link a billing account / use the <strong>Blaze</strong> plan to deploy Cloud Functions. Cloud Functions, build/artifact storage, Secret Manager, network traffic, and Gemini have their own pricing/allowances. A Gemini API free tier does not guarantee free Firebase hosting of the gateway. Set a billing budget alert and suitable Gemini project quotas; an alert does not cap spending.</li>
+<li>In <a href="https://aistudio.google.com/api-keys">Google AI Studio → API keys</a>, select/import this existing Google Cloud project and create a <strong>Gemini Developer API key</strong> for the backend. Confirm the <strong>Generative Language API</strong> is enabled for that project in Cloud Console. Google Cloud Vision API and Vertex AI are different integrations.</li>
+<li>In Cloud Console → APIs &amp; Services → Credentials, restrict this backend key to the Generative Language API where supported. Browser HTTP-referrer restrictions will reject requests from a server. Ordinary Functions egress has no fixed IP for an IP restriction without additional networking configuration.</li>
+</ol>
+<p>A Firebase web app’s public <code>firebaseConfig.apiKey</code>, an OAuth client ID, and a Google chat subscription are not substitutes for this server key. This integration uses an API key, so you do not need an OAuth JavaScript origin, redirect URI, Firebase web SDK, or a registered Firebase web app. If you enabled <strong>Firebase AI Logic</strong>, Bhaasa still needs this gateway or a separate AI Logic client integration.</p></section>
+
+<section id="deploy"><h2>2. Deploy the gateway</h2>
+<p>Use a terminal on your computer with Git and <strong>Node.js 22</strong>, or Google Cloud Shell with that Node version. Deployment must run under a Google account allowed to deploy Functions and manage project secrets. You do not need a GitHub Actions service-account key.</p>
+<pre><code>git clone https://github.com/bhaashik/LanguageLearning.git
+cd LanguageLearning
+npm ci --prefix firebase/functions
+npm install -g firebase-tools
+firebase login
+cd firebase</code></pre>
+<p>If already cloned, update your checkout instead of cloning it again. In Cloud Shell or a remote terminal, use <code>firebase login --no-localhost</code> if ordinary login cannot open its browser callback. No localhost URL goes into the production endpoint.</p>
+<p>Store the Gemini key interactively. Paste it only at the CLI’s secret prompt:</p>
+<pre><code>firebase functions:secrets:set BHAASA_GEMINI_API_KEY --project YOUR_PROJECT_ID</code></pre>
+<p>Generate a <strong>different</strong> random gateway access token on your own computer/Cloud Shell, save it in your password manager, then paste it into the second secret prompt:</p>
+<pre><code>node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+firebase functions:secrets:set BHAASA_GATEWAY_TOKEN --project YOUR_PROJECT_ID</code></pre>
+<p>The second token is what you enter in Bhaasa. The Gemini key is never entered there. Do not commit either secret, put it in an endpoint URL, or paste it into chat.</p>
+<p>Copy <code>firebase/functions/env.example</code> to <code>firebase/functions/.env.YOUR_PROJECT_ID</code> using your editor. Because you are now in the <code>firebase</code> directory, the relative paths are <code>functions/env.example</code> and <code>functions/.env.YOUR_PROJECT_ID</code>. Keep only nonsecret settings in that file:</p>
+<pre><code>BHAASA_ALLOWED_ORIGINS=https://bhaashik.github.io,http://127.0.0.1:4173,http://localhost:4173
+BHAASA_OCR_GEMINI_MODEL=gemini-2.5-flash
+BHAASA_ASR_GEMINI_MODEL=gemini-2.5-flash
+BHAASA_TTS_GEMINI_MODEL=gemini-2.5-flash-preview-tts
+BHAASA_TTS_GEMINI_VOICE=Kore</code></pre>
+<p>These model IDs are examples supported by Bhaasa’s adapters, not a promise of current availability or free quota. Use exact IDs available to your project: OCR needs image input and JSON output; ASR needs audio input and JSON output; TTS needs audio output. A generic <code>Gemini</code> label or image-generation model is not interchangeable. Keep a single exact ID per variable in this template.</p>
+<p>The template uses <code>us-central1</code>, zero minimum instances, at most two instances, two concurrent requests per instance, 512 MiB RAM, and a 120-second function timeout. Edit <code>functions/index.mjs</code> before first deployment if another supported region is needed. Region/model availability and provider terms still apply. Instance limits are not a spending cap.</p>
+<pre><code>firebase deploy --only functions:bhaasa --project YOUR_PROJECT_ID</code></pre>
+<p>The <code>bhaasa</code> selector deploys this template’s codebase; it does not deploy Firebase Hosting or unrelated codebases. Accept required API-enablement prompts only for your intended project. If the CLI reports missing deployment permissions or billing, resolve those in that project; enabling Gemini alone is insufficient.</p>
+<p>Copy the exact <strong>Function URL</strong> printed for <code>bhaasaApi</code>. It can be a <code>cloudfunctions.net</code> URL or a Cloud Run <code>.run.app</code> URL. Use what the CLI prints; do not construct a URL from the Firebase app ID.</p>
+<p>Example base URL:</p><pre><code>https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/bhaasaApi</code></pre>
+<p>The Google HTTP invoker is public so a browser can reach it. The function itself requires your separate token; it rejects missing/wrong tokens before model discovery or Gemini generation. If your organization forbids public HTTP invokers, this template needs an approved authentication design before it can be used.</p></section>
+
+<section id="browser"><h2>3. Connect the browser app</h2>
+<ol>
+<li>Open the updated <a href="https://bhaashik.github.io/LanguageLearning/#connections">Bhaasa web app → Connections &amp; models</a>. If the <strong>Private test gateway access</strong> section is absent, reload the updated app or pull and run the latest source locally.</li>
+<li>Set OCR to <strong>Google Gemini</strong>, TTS to <strong>Google Gemini</strong>, and ASR to <strong>Google Gemini audio</strong>.</li>
+<li>Paste your function base URL into <strong>Optional gateway base URL</strong>. Click <strong>Fill the three gateway addresses</strong>.</li>
+<li>Expand <strong>Private test gateway access</strong>, enter the separate <code>BHAASA_GATEWAY_TOKEN</code> value, and click <strong>Save access for this session</strong>. Never enter <code>BHAASA_GEMINI_API_KEY</code> here. The access token is scoped to this exact gateway’s API routes and stored for this tab/session, including reloads, rather than in progress/audio exports.</li>
+<li>For each of OCR, TTS, and ASR, click <strong>Discover gateway models</strong>, select a configured model, and click <strong>Use these settings</strong>. For TTS choose the reported <strong>Kore</strong> voice, or an exact supported voice ID. Configure Malayalam and French voice/ASR preferences separately when switching languages.</li>
+<li>Try one handwriting recognition, one Listen action on a phrase, and one short recorded speaking check. Discovery alone reads server configuration; it does not prove Gemini authorization, modality support, quota, or recognition quality.</li>
+</ol>
+<div class="table"><table><thead><tr><th>Purpose</th><th>Address relative to function base</th><th>Model example</th></tr></thead><tbody>
+<tr><td>OCR / handwriting</td><td><code>/api/ocr</code></td><td><code>gemini-2.5-flash</code></td></tr>
+<tr><td>TTS / listening</td><td><code>/api/speech</code> (model list: <code>/api/speech/models</code>)</td><td><code>gemini-2.5-flash-preview-tts</code></td></tr>
+<tr><td>ASR / speaking check</td><td><code>/api/transcribe</code></td><td><code>gemini-2.5-flash</code></td></tr>
+</tbody></table></div>
+<p>These are your Bhaasa gateway URLs, not Google’s <code>generativelanguage.googleapis.com</code> endpoint. Opening a protected URL in another browser tab ordinarily shows <code>gateway_access_required</code>: that navigation has no token header. Use Bhaasa’s Discover buttons after saving access.</p></section>
+
+<section id="platforms"><h2>4. Use the same gateway on other platforms</h2>
+<p>The web app, desktop packages, and Capacitor mobile apps share the request format. Each device needs its own connection settings and access token. Native packages must be rebuilt from a source version containing the access-token controls; the older v0.7.1 test downloads do not have them. On an iPad/iPhone, use the updated web app meanwhile.</p>
+<p>Add the exact client origins you need to <code>BHAASA_ALLOWED_ORIGINS</code>, separated by commas, then redeploy. An origin has no page or repository path. Typical values for this repository are:</p>
+<pre><code># Hosted browser / installed PWA:
+https://bhaashik.github.io
+# Local browser development:
+http://127.0.0.1:4173
+http://localhost:4173
+# Linux/Windows desktop, default port:
+http://127.0.0.1:4174
+# Android Capacitor WebView:
+https://localhost
+# iOS Capacitor WebView:
+capacitor://localhost</code></pre>
+<p>Keep the gateway address HTTPS on every device. The native app’s <code>https://localhost</code> origin identifies its packaged page; it is not the gateway URL. Use the actual browser origin if a desktop port or hosting domain changes. There is no need for one provider key per operating system.</p></section>
+
+<section id="changes"><h2>5. Changes and troubleshooting</h2>
+<ul>
+<li><strong>Change model/voice/origins:</strong> edit <code>functions/.env.YOUR_PROJECT_ID</code>, then redeploy <code>functions:bhaasa</code>. Rediscover models and update the corresponding saved app settings; a saved explicit old model remains explicit.</li>
+<li><strong>Rotate a key/token:</strong> rerun its <code>functions:secrets:set</code> command, then redeploy so the function binds the new secret version. After rotating the gateway token, forget old session access and enter the new token in Bhaasa.</li>
+<li><strong>HTTP 401 / gateway_access_required:</strong> save the gateway token for the exact function base URL. Changing between a Cloud Run URL and a Functions URL also changes its scope. Do not fix this by removing authentication.</li>
+<li><strong>CORS/network failure:</strong> verify the exact app origin is allowed and redeployed. Use the HTTPS function base, including <code>/bhaasaApi</code> if present, with the three API suffixes. GitHub Pages and your Firebase site URL do not automatically provide these APIs.</li>
+<li><strong>HTTP 403:</strong> distinguish Google IAM/invoker or organization policy from the function’s <code>origin_not_allowed</code> and Gemini key/API-access errors. The Google key must belong to the enabled project and permit the Generative Language API.</li>
+<li><strong>HTTP 400/404 from Gemini:</strong> verify the exact model exists for the project and supports the required input/output. The optional <strong>List models from Gemini</strong> control in tracing reads Google’s catalogue using the server key, but does not test OCR/TTS/ASR generation.</li>
+<li><strong>HTTP 429:</strong> inspect quota/billing for the selected Gemini model. <strong>502/503/504:</strong> inspect Functions logs and provider availability/model output. Retry explicitly; failed requests do not receive a learning score.</li>
+<li><strong>Privacy:</strong> this gateway deliberately does not log drawings, audio, text, or credential values. Generated speech is returned to the device; there is no Firestore/Cloud Storage recording collection. Bhaasa keeps its normal local progress and audio saving behavior. Google’s API data-use policy depends on the project’s service/tier.</li>
+</ul>
+<p>Official references: <a href="https://firebase.google.com/docs/functions/get-started">Functions setup</a> · <a href="https://firebase.google.com/docs/functions/config-env">Parameters and secrets</a> · <a href="https://firebase.google.com/docs/functions/http-events">HTTP functions</a> · <a href="https://ai.google.dev/gemini-api/docs/api-key">Gemini API keys</a> · <a href="https://ai.google.dev/gemini-api/docs/speech-generation">Gemini speech generation</a> · <a href="https://firebase.google.com/pricing">Firebase pricing</a>.</p></section>
+</body></html>

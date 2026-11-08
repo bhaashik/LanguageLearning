@@ -1,7 +1,7 @@
 import {clipKey,validateEndpoint,listClips,saveClip,deleteClip,exportAudio,importAudio} from './audio-store.js';
 import {OPENAI_DEFAULT_MODEL,OPENAI_DEFAULT_VOICE} from './speech-presets.js';
 import {nativeBridge,defaultGateway,randomId} from './platform.js';
-import {restoreGateway} from './gateway.js';
+import {restoreGateway,gatewayHeaders} from './gateway.js';
 const PREF='bhaasa.voices.v1';
 const defaults=[{id:'device',kind:'device',name:'Device Malayalam voice',provider:'device',model:'speech-synthesis',voice:'default',gender:'unspecified'},{id:'human',kind:'recording',name:'My recordings',provider:'human',model:'microphone-or-file',voice:'my-voice',gender:'unspecified'}];
 export class AudioLibrary {
@@ -59,7 +59,8 @@ export class AudioLibrary {
     if(p.provider==='openai'&&target.ml.length>4096)throw Error('Choose a smaller item or lesson: OpenAI generation is limited to 4096 characters per request.');
     this.busy=true;this.onChange();
     try{
-      const response=await fetch(validateEndpoint(p.endpoint),{method:'POST',headers:{'Content-Type':'application/json','Accept':'audio/*'},body:JSON.stringify({input:target.ml,language:this.locale,provider:p.provider,model:p.model,voice:p.voice,response_format:'mp3'}),signal:AbortSignal.timeout(45000)});
+      const endpoint=validateEndpoint(p.endpoint),response=await fetch(endpoint,{method:'POST',headers:gatewayHeaders(endpoint,{'Content-Type':'application/json','Accept':'audio/*'}),redirect:'error',body:JSON.stringify({input:target.ml,language:this.locale,provider:p.provider,model:p.model,voice:p.voice,response_format:'mp3'}),signal:AbortSignal.timeout(45000)});
+      if(response.status===401)throw Error('Save the gateway access token in Connections & models, then try again.');
       if(!response.ok)throw Error(`The speech service returned HTTP ${response.status}. Check its provider, model, voice, and server-side credentials.`);
       if(!response.headers.get('content-type')?.startsWith('audio/'))throw Error('The speech service did not return an audio file.');
       const blob=await response.blob();if(save)await this.store(target,p,blob,'generated');return blob;
