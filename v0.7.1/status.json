@@ -1,9 +1,12 @@
 {
   "version": "0.7.1",
   "platform": "windows",
-  "state": "building",
+  "state": "ready",
   "sourceCommit": "63095619234784002c2340799f7abaf9b9dff86d",
-  "updatedAt": "2026-11-08T07:43:38.305Z",
+  "updatedAt": "2026-11-08T07:44:50.461Z",
   "runURL": "https://github.com/bhaashik/LanguageLearning/actions/runs/42459936851",
-  "architecture": null
+  "architecture": "x64",
+  "file": "Bhaasa-windows-x64.zip",
+  "bytes": 36970740,
+  "sha256": "5119fda63a188b378f475b62b46d9f7a26bce883d3ae22b58dc8aa944ec1266f"
 }
