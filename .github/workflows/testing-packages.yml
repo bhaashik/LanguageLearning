@@ -81,7 +81,7 @@ jobs:
     permissions:
       contents: write
     env:
-      BHAASA_BUILD_LOG: ${{ runner.temp }}/bhaasa-ios-build.log
+      BHAASA_BUILD_LOG: bhaasa-ios-build.log
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
