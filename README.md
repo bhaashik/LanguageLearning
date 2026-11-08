@@ -1,6 +1,6 @@
 # Bhaasa iOS simulator test downloads
 
-The build is running. A download link will appear here after its checks pass.
+The build failed; no new package has been published.
 
 **For Xcode’s iOS Simulator on a Mac only. This is not an installable iPhone/iPad IPA.** Extract the ZIP, boot a compatible simulator in Xcode, then drag App.app into its window. Alternatively use `xcrun simctl install booted App.app` and `xcrun simctl launch booted io.github.bhaashik.bhaasa`. An actual iPhone/iPad install needs your Apple development signing, or TestFlight distribution under your Apple Developer account.
 
