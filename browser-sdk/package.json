@@ -1,0 +1,7 @@
+{
+  "name": "bhaasa-firebase-browser-sdk",
+  "private": true,
+  "type": "module",
+  "scripts": {"build": "node build.mjs"},
+  "devDependencies": {"firebase": "13.2.0", "esbuild": "0.28.2"}
+}

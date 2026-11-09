@@ -1,3 +1,4 @@
+import {firebaseClient} from './firebase-client.js';
 import {clipKey,validateEndpoint,listClips,saveClip,deleteClip,exportAudio,importAudio} from './audio-store.js';
 import {OPENAI_DEFAULT_MODEL,OPENAI_DEFAULT_VOICE} from './speech-presets.js';
 import {nativeBridge,defaultGateway,randomId} from './platform.js';
@@ -10,7 +11,7 @@ export class AudioLibrary {
     this.notify=notify;this.profiles=structuredClone(this.defaults);this.activeId='device';this.autoSave=true;this.clips=[];this.voices=[];this.playback=null;this.playURL=null;this.busy=false;this.recorder=null;this.stream=null;this.recordTarget=null;this.onChange=()=>{};
     this.openaiPreset={model:OPENAI_DEFAULT_MODEL,voice:OPENAI_DEFAULT_VOICE,endpoint:defaultGateway('speech'),status:''};
     try{const p=JSON.parse(localStorage.getItem(this.prefKey));if(p&&Array.isArray(p.profiles)){
-      this.profiles=[...this.defaults,...p.profiles.filter(p=>!['device','human'].includes(p.id)&&['device','service','recording'].includes(p.kind)&&['id','name','provider','model','voice'].every(k=>typeof p[k]==='string'&&p[k].length<250)).slice(0,50).map(p=>({...p,...(p.kind==='service'?{endpoint:restoreGateway(p.endpoint,'speech')}:{})}))];
+      this.profiles=[...this.defaults,...p.profiles.filter(p=>!['device','human'].includes(p.id)&&['device','service','recording'].includes(p.kind)&&['id','name','provider','model','voice'].every(k=>typeof p[k]==='string'&&p[k].length<250)).slice(0,50).map(p=>({...p,...(p.kind==='service'?{endpoint:p.provider==='firebase'?'':restoreGateway(p.endpoint,'speech')}:{})}))];
       if(this.profiles.some(v=>v.id===p.activeId))this.activeId=p.activeId;this.autoSave=p.autoSave!==false;
     }}catch{/* Fall back to local defaults without blocking lessons. */}
     const selected=this.active,openai=selected.kind==='service'&&selected.provider==='openai'?selected:[...this.profiles].reverse().find(p=>p.kind==='service'&&p.provider==='openai');
@@ -28,7 +29,7 @@ export class AudioLibrary {
   choose(id){if(this.profiles.some(p=>p.id===id)){this.activeId=id;this.persist();}}
   add(profile){
     if(!['service','recording','device'].includes(profile.kind)||!['name','provider','model','voice'].every(k=>typeof profile[k]==='string'&&profile[k].trim()&&profile[k].length<200))throw Error('Give this voice a name, provider, model, and voice identifier.');
-    if(profile.kind==='service')profile.endpoint=validateEndpoint(profile.endpoint);
+    if(profile.kind==='service')profile.endpoint=profile.provider==='firebase'?'':validateEndpoint(profile.endpoint);
     profile.id=randomId();this.profiles.push(profile);this.activeId=profile.id;this.persist();return profile;
   }
   cached(target,profile=this.active){return this.clips.find(c=>c.key===clipKey(target,profile)&&c.text===target.ml);}
@@ -59,6 +60,7 @@ export class AudioLibrary {
     if(p.provider==='openai'&&target.ml.length>4096)throw Error('Choose a smaller item or lesson: OpenAI generation is limited to 4096 characters per request.');
     this.busy=true;this.onChange();
     try{
+      if(p.provider==='firebase'){const blob=await firebaseClient.speech(target.ml,{model:p.model,voice:p.voice,language:this.locale});if(save)await this.store(target,p,blob,'generated');return blob;}
       const endpoint=validateEndpoint(p.endpoint),response=await fetch(endpoint,{method:'POST',headers:gatewayHeaders(endpoint,{'Content-Type':'application/json','Accept':'audio/*'}),redirect:'error',body:JSON.stringify({input:target.ml,language:this.locale,provider:p.provider,model:p.model,voice:p.voice,response_format:'mp3'}),signal:AbortSignal.timeout(45000)});
       if(response.status===401)throw Error('Save the gateway access token in Connections & models, then try again.');
       if(!response.ok)throw Error(`The speech service returned HTTP ${response.status}. Check its provider, model, voice, and server-side credentials.`);

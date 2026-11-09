@@ -1,9 +1,11 @@
+import {FIREBASE_MODELS} from './firebase-client.js';
 import {validateEndpoint} from './audio-store.js';
 import {defaultGateway} from './platform.js';
 import {restoreGateway} from './gateway.js';
 export const OCR_PROVIDERS=[
   {id:'openai',label:'OpenAI'},
-  {id:'gemini',label:'Google Gemini'},
+  {id:'gemini',label:'Google Gemini · gateway'},
+  {id:'firebase',label:'Firebase AI Logic · direct Gemini'},
   {id:'anthropic',label:'Anthropic Claude'},
   {id:'compatible',label:'Local / OpenAI-compatible vision model'},
   {id:'custom',label:'Custom OCR endpoint'},
@@ -13,12 +15,12 @@ const KEY='bhaasa.ocr.preferences.v1';
 const defaultEndpoint=()=>defaultGateway('ocr');
 export function loadOCRSettings(){
   const settings={provider:'openai',profiles:{}};
-  for(const p of OCR_PROVIDERS)settings.profiles[p.id]={model:'',endpoint:p.id==='custom'?'':defaultEndpoint()};
+  for(const p of OCR_PROVIDERS)settings.profiles[p.id]={model:p.id==='firebase'?FIREBASE_MODELS.ocr:'',endpoint:['custom','firebase'].includes(p.id)?'':defaultEndpoint()};
   try{
     const saved=JSON.parse(localStorage.getItem(KEY));
     if(saved&&OCR_PROVIDERS.some(p=>p.id===saved.provider))settings.provider=saved.provider;
     for(const p of OCR_PROVIDERS){const value=saved?.profiles?.[p.id];if(!value)continue;
-      const endpoint=restoreGateway(value.endpoint,'ocr');
+      const endpoint=p.id==='firebase'?'':restoreGateway(value.endpoint,'ocr');
       settings.profiles[p.id]={endpoint,model:typeof value.model==='string'?value.model.slice(0,150):''};
     }
     if(!saved){const old=localStorage.getItem('bhaasa.ocr.gateway');if(old)settings.profiles.openai.endpoint=validateEndpoint(old);}

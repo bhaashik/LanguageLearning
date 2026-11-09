@@ -7,7 +7,7 @@ export function audioPage(library,targets,selectedId){
   const presetVoices=[...new Set([...openAIVoices(library.openaiPreset.model),library.openaiPreset.voice])];
   const groups=[...new Set(Object.values(targets).map(t=>t.section))];
   return `<div class="page-heading"><div><p class="eyebrow">YOUR VOICES, YOUR LIBRARY</p><h1>Voices & recordings</h1><p class="description">Choose a device voice, connect a speech model, or keep your own recordings. Saved audio works offline.</p></div></div>
-  ${isNativeApp()||isPagesApp()?'<p class="notice">This app includes lessons and tracing. Cloud speech needs a reachable HTTPS gateway; GitHub Pages cannot run the speech API, and localhost on this device is not your desktop. Device voices and saved recordings need no model gateway.</p>':''}
+  ${isNativeApp()||isPagesApp()?'<p class="notice">This app includes lessons and tracing. Cloud speech can use direct Firebase AI Logic in Connections &amp; models, or a reachable HTTPS gateway; GitHub Pages cannot run the speech API, and localhost on this device is not your desktop. Device voices and saved recordings need no model gateway.</p>':''}
   ${library.storageError?`<p class="notice">${esc(library.storageError)}</p>`:''}
   <p><a class="button secondary" href="#connections">Connections &amp; models · choose OCR, TTS, and ASR</a></p>
   <section class="audio-settings panel"><div class="section-title"><h2>Choose how Bhaasa sounds</h2><span>${library.clips.length} saved clips</span></div>

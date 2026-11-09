@@ -1,16 +1,18 @@
+import {firebaseClient,FIREBASE_MODELS} from './firebase-client.js';
 import {defaultGateway} from './platform.js';
 import {validateEndpoint} from './audio-store.js';
 import {restoreGateway,requestTimeout,gatewayHeaders} from './gateway.js';
-export const ASR_PROVIDERS=[['browser','Device/browser recognition'],['openai','OpenAI transcription'],['gemini','Google Gemini audio'],['compatible','Local / Whisper-compatible'],['custom','Custom ASR adapter']];
+export const ASR_PROVIDERS=[['browser','Device/browser recognition'],['openai','OpenAI transcription'],['gemini','Google Gemini audio · gateway'],['firebase','Firebase AI Logic · direct Gemini'],['compatible','Local / Whisper-compatible'],['custom','Custom ASR adapter']];
 export function loadASRSettings(language){
-  const settings={provider:(globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition)?'browser':'openai',profiles:Object.fromEntries(ASR_PROVIDERS.map(([id])=>[id,{endpoint:id==='browser'?'':defaultGateway('transcribe'),model:''}]))};
-  try{const saved=JSON.parse(localStorage.getItem(`bhaasa.asr.${language}.v1`));if(ASR_PROVIDERS.some(([id])=>id===saved?.provider))settings.provider=saved.provider;for(const [id] of ASR_PROVIDERS){const p=saved?.profiles?.[id];if(p&&typeof p.endpoint==='string'&&p.endpoint.length<=1000&&typeof p.model==='string'&&p.model.length<=150)settings.profiles[id]={endpoint:id==='browser'?'':restoreGateway(p.endpoint,'transcribe'),model:p.model};}}catch{}
+  const settings={provider:(globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition)?'browser':'openai',profiles:Object.fromEntries(ASR_PROVIDERS.map(([id])=>[id,{endpoint:['browser','firebase'].includes(id)?'':defaultGateway('transcribe'),model:id==='firebase'?FIREBASE_MODELS.asr:''}]))};
+  try{const saved=JSON.parse(localStorage.getItem(`bhaasa.asr.${language}.v1`));if(ASR_PROVIDERS.some(([id])=>id===saved?.provider))settings.provider=saved.provider;for(const [id] of ASR_PROVIDERS){const p=saved?.profiles?.[id];if(p&&typeof p.endpoint==='string'&&p.endpoint.length<=1000&&typeof p.model==='string'&&p.model.length<=150)settings.profiles[id]={endpoint:['browser','firebase'].includes(id)?'':restoreGateway(p.endpoint,'transcribe'),model:p.model};}}catch{}
   return settings;
 }
 export function saveASRSettings(language,value){try{localStorage.setItem(`bhaasa.asr.${language}.v1`,JSON.stringify(value));return true;}catch{return false;}}
 const dataURL=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('The recording could not be read.'));reader.readAsDataURL(blob);});
 export async function transcribeAudio(blob,{provider,endpoint,model},language,signal){
   if(!blob.size||blob.size>10*1024*1024||!blob.type.startsWith('audio/'))throw Error('Use a nonempty audio recording under 10 MB.');
+  if(provider==='firebase')return firebaseClient.transcribe(blob,{model,language,signal});
   const address=validateEndpoint(endpoint),body=JSON.stringify({audio:await dataURL(blob),language,provider,...(model.trim()?{model:model.trim()}:{})}),request=requestTimeout(signal,65000);
   try{
   const response=await fetch(address,{method:'POST',headers:gatewayHeaders(address,{'Content-Type':'application/json'}),redirect:'error',body,signal:request.signal});

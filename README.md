@@ -1,6 +1,6 @@
 # Bhaasa · Sounds, scripts, and everyday language
 
-**Current source and web app: v0.7.2.** The `main` branch includes the iPad Connections & models fixes. [Open the current web app](https://bhaashik.github.io/LanguageLearning/) or run/build this checkout from source. The source version is recorded in [package.json](package.json).
+**Current source and web app: v0.7.3.** The `main` branch includes direct Firebase AI Logic with reCAPTCHA Enterprise App Check for browser OCR, TTS and ASR. [Open the current web app](https://bhaashik.github.io/LanguageLearning/) or run/build this checkout from source. The source version is recorded in [package.json](package.json).
 
 ## Downloadable test builds — v0.7.1
 
@@ -19,7 +19,7 @@ Bhaasa teaches Malayalam and French. The Malayalam foundation started from the t
 
 ## Run
 
-The web app's **Connections & models** page provides selectable OCR, TTS, and ASR models and TTS voices. GitHub Pages starts without pretend API URLs; cloud services need a separate reachable HTTPS gateway, while device voices/recordings and tracing can work without one. [iPad/web gateway setup](docs/PROVIDERS.html#ipad-web) explains the three independent checks and CORS origin settings. This browser's settings do not transfer from a desktop automatically.
+The web app's **Connections & models** page provides selectable OCR, TTS, and ASR models and TTS voices. GitHub Pages starts without pretend API URLs; cloud services can use direct Firebase AI Logic or a separate reachable HTTPS gateway, while device voices/recordings and tracing can work offline. [iPad/web gateway setup](docs/PROVIDERS.html#ipad-web) explains the three independent checks and CORS origin settings. This browser's settings do not transfer from a desktop automatically.
 
 With Node.js 20.12+ (Node 24 recommended), from the cloned repository directory:
 
@@ -94,7 +94,22 @@ Content details and limitations are in [docs/CONTENT.md](docs/CONTENT.md). Word/
 
 The [OCR & speech setup guide](docs/PROVIDERS.html) covers OpenAI, Gemini, Claude, ElevenLabs, local vision engines, and custom OCR/TTS adapters, with environment examples, field mappings, recording/import workflows, and troubleshooting. Open it from About, the tracing settings, or Voices & recordings. The readable/printable HTML document is included in the static build and cached for offline reading.
 
-## Firebase and Gemini cloud gateway
+## Direct Firebase AI Logic in the browser
+
+In **Connections & models → Firebase AI Logic**, enter the **Firebase web API key** and the **public reCAPTCHA Enterprise website Key ID** locally. The project is `bhaashik-apps`, web app `1:1017562072235:web:e1ce9a61407ed034a263ee`. Choose **Firebase AI Logic · direct Gemini** independently for OCR, TTS and ASR, show the model presets, then save each service. No Cloud Function or custom gateway is needed for this route. The Gemini Developer API key stays in the Firebase-managed backend; never enter it into the app. App Check enforcement remains controlled in Firebase Console.
+
+The [direct browser guide](docs/FIREBASE.html#direct) covers allowed domains, API restrictions and checking App Check. Configuration stays in this browser and is excluded from progress/audio exports. The SDK is lazy-loaded from the checked-in `vendor/` bundle, with licenses, so GitHub Pages needs no CDN imports. Offline lessons, tracing and saved audio continue to work without Firebase. Cloud generation requires internet. Model presets are suggestions, not an account-specific model discovery result.
+
+To rebuild the Firebase browser SDK (Node 24):
+
+```sh
+npm ci --prefix browser-sdk
+npm run build --prefix browser-sdk
+```
+
+Commit the updated bundle and license together with its source and lockfile. The normal `npm run build` copies the prebundled SDK into `dist/` and needs no root dependency installation. `python3 tests/firebase.py` exercises the real bundle with intercepted Firebase/App Check responses; no live API call is made.
+
+## Optional Firebase and Gemini Cloud Functions gateway
 
 Keep the web app on GitHub Pages and deploy the Gemini OCR, TTS, and ASR gateway to your Firebase project. The [Firebase setup guide](docs/FIREBASE.html) covers project/API access, Blaze billing, Secret Manager, exact model IDs, deployment, allowed origins, and connecting each platform. The [deployment template](firebase/) reuses the existing adapters and requires a separate session gateway token; provider keys stay on the server. Initial browser testing works with **Connections & models → Private test gateway access**. Existing v0.7.1 native downloads need rebuilding to include those controls.
 

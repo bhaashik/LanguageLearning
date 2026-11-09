@@ -18,6 +18,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - run: npm ci --prefix browser-sdk --no-audit --no-fund
+      - run: npm run build --prefix browser-sdk
+      - run: git diff --exit-code -- vendor/
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3

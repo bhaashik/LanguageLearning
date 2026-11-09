@@ -1,3 +1,4 @@
+import {firebaseClient} from './firebase-client.js';
 import {ASR_PROVIDERS,loadASRSettings,saveASRSettings,transcribeAudio} from './asr.js';
 import {compareSpeech} from './speech-learning.js';
 import {helpLinkAttributes,isNativeApp,isPagesApp} from './platform.js';
@@ -13,9 +14,9 @@ export function setupSpeaking({item,locale,audio,onResult,notify}){
   const persist=()=>saveASRSettings(item.language||'ml',settings);
   function sync(){if(dead)return;const browser=settings.provider==='browser',supported=Boolean(window.SpeechRecognition||window.webkitSpeechRecognition);
     find('speech-record').disabled=recording||busy||browser&&!supported;
-    find('speech-stop').disabled=!recording;find('speech-cancel').disabled=!recording&&!busy;find('speech-check').disabled=recording||busy||browser||!blob||judged||!profile().endpoint.trim();
+    find('speech-stop').disabled=!recording;find('speech-cancel').disabled=!recording&&!busy;find('speech-check').disabled=recording||busy||browser||!blob||judged||settings.provider!=='firebase'&&!profile().endpoint.trim();
     find('speech-play').disabled=!blob||recording||busy;find('speech-save').disabled=!blob||recording||busy;
-    find('speech-model').disabled=browser;find('speech-endpoint').disabled=browser;find('speech-connection').disabled=browser||busy;
+    find('speech-model').disabled=browser;find('speech-endpoint').disabled=browser||settings.provider==='firebase';find('speech-connection').disabled=browser||busy;
   }
   function release(){clearTimeout(timer);stream?.getTracks().forEach(track=>track.stop());stream=null;recording=false;recorder=null;}
   function cancel(){operation++;request?.abort();request=null;if(recognition){recognition.onresult=null;recognition.onerror=null;recognition.onend=null;recognition.abort();recognition=null;}if(recorder){recorder.onstop=null;recorder.onerror=null;recorder.ondataavailable=null;if(recorder.state==='recording')recorder.stop();}release();busy=false;}
@@ -41,13 +42,13 @@ export function setupSpeaking({item,locale,audio,onResult,notify}){
       const type=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported(t)),chunks=[];
       const active=new MediaRecorder(stream,type?{mimeType:type}:{});recorder=active;
       active.ondataavailable=event=>{if(event.data.size)chunks.push(event.data);};
-      active.onstop=()=>{blob=new Blob(chunks,{type:active.mimeType||'audio/webm'});release();if(dead)return;if(blob.size>10*1024*1024){blob=null;status('That recording exceeded 10 MB. Make a shorter recording.');}else status(profile().endpoint.trim()?'Recording ready. Press Check my speech to send it.':'Recording ready. Enter a reachable ASR gateway in connection settings to check it.');sync();};
+      active.onstop=()=>{blob=new Blob(chunks,{type:active.mimeType||'audio/webm'});release();if(dead)return;if(blob.size>10*1024*1024){blob=null;status('That recording exceeded 10 MB. Make a shorter recording.');}else status((settings.provider==='firebase'||profile().endpoint.trim())?'Recording ready. Press Check my speech to send it.':'Recording ready. Enter a reachable ASR gateway in connection settings to check it.');sync();};
       active.onerror=()=>{release();status('Recording failed. Check microphone access or import a file.');sync();};
       active.start();recording=true;busy=false;timer=setTimeout(()=>recorder?.state==='recording'&&recorder.stop(),60000);status('Recording locally… Stop when you finish the phrase.');sync();
     }catch(error){release();throw error;}
   }
   find('speech-provider').value=settings.provider;
-  function showProfile(){find('speech-endpoint').value=profile().endpoint;find('speech-model').value=profile().model;status(settings.provider==='browser'?(window.SpeechRecognition||window.webkitSpeechRecognition?'Ready for device/browser recognition. It may need internet.':'This browser has no recognition API. Choose a gateway provider to record or import audio.'):'Record or import a phrase, then check it with your ASR gateway. Maximum one minute / 10 MB.');sync();}
+  function showProfile(){find('speech-endpoint').value=profile().endpoint;find('speech-model').value=profile().model;status(settings.provider==='browser'?(window.SpeechRecognition||window.webkitSpeechRecognition?'Ready for device/browser recognition. It may need internet.':'This browser has no recognition API. Choose a gateway provider to record or import audio.'):settings.provider==='firebase'?'Record or import a phrase, then check it directly with Firebase AI Logic. Configure Firebase in Connections & models. Maximum one minute / 10 MB.':'Record or import a phrase, then check it with your ASR gateway. Maximum one minute / 10 MB.');sync();}
   find('speech-provider').onchange=()=>{cancel();settings.provider=find('speech-provider').value;persist();showProfile();};
   for(const [id,key] of [['speech-endpoint','endpoint'],['speech-model','model']])find(id).oninput=()=>{settings.profiles[settings.provider][key]=find(id).value;persist();sync();};
   find('speech-record').onclick=()=>start().catch(error=>{busy=false;release();status(error.message);sync();});
@@ -60,6 +61,6 @@ export function setupSpeaking({item,locale,audio,onResult,notify}){
   find('speech-file').onchange=event=>{cancel();const file=event.target.files[0];event.target.value='';if(!file)return;blob=null;judged=false;find('speech-result').innerHTML='';if(!file.type.startsWith('audio/')||file.size>10*1024*1024){status('Choose an audio file under 10 MB.');sync();return;}blob=file;status('Audio file ready. Press Check my speech to send it.');sync();};
   find('speech-play').onclick=async()=>{try{await audio.stopPlayback();player?.pause();if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(blob);player=new Audio(url);await player.play();}catch(error){notify(error.message);}};
   find('speech-save').onclick=async()=>{try{await audio.store(item,audio.profiles.find(p=>p.id==='human'),blob,'speaking-practice');notify('Your practice audio was saved under My recordings.');}catch(error){notify(error.message);}};
-  find('speech-connection').onclick=async()=>{const label=find('speech-connection-status');try{const data=await gatewayJSON(profile().endpoint),p=data.providers?.find(p=>p.id===settings.provider);label.textContent=p?.configured?`Provider configured. Enabled models: ${p.models.join(', ')||'adapter default'}. No recording was sent; access, quota, and accuracy still need an explicit sample.`:'This provider is not configured. Set its BHAASA_ASR variables on the server and restart.';}catch(error){label.textContent=error.message;}};
+  find('speech-connection').onclick=async()=>{const label=find('speech-connection-status');try{if(settings.provider==='firebase'){await firebaseClient.check();if(!dead)label.textContent='Firebase App Check token obtained. No recording was sent; model access and quota still need an explicit sample.';return;}const data=await gatewayJSON(profile().endpoint),p=data.providers?.find(p=>p.id===settings.provider);label.textContent=p?.configured?`Provider configured. Enabled models: ${p.models.join(', ')||'adapter default'}. No recording was sent; access, quota, and accuracy still need an explicit sample.`:'This provider is not configured. Set its BHAASA_ASR variables on the server and restart.';}catch(error){label.textContent=error.message;}};
   showProfile();return {cleanup:()=>{dead=true;cancel();player?.pause();if(url)URL.revokeObjectURL(url);},pause:()=>{cancel();player?.pause();status('Speech practice paused. Start again when you are ready.');sync();}};
 }
