@@ -8,6 +8,8 @@
     "dev": "node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",
+    "firebase:build": "node firebase/build.mjs",
+    "gateway:check": "node firebase/check.mjs",
     "desktop:install": "npm ci --prefix desktop --no-audit --no-fund",
     "desktop:start": "npm run start --prefix desktop",
     "desktop:package": "npm run package --prefix desktop",

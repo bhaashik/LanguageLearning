@@ -32,8 +32,7 @@ export function ocrSelection(settings){return {provider:settings.provider,...set
 export const ocrRecognitionKey=config=>JSON.stringify([config.provider,config.endpoint,config.model||'gateway-default']);
 export function recognitionPayload(image,config){if(config.provider==='none')throw Error('Handwriting recognition is off.');return config.provider==='custom'?{image}:{image,provider:config.provider,...(config.model?{model:config.model}:{})};}
 export const providerLabel=id=>OCR_PROVIDERS.find(p=>p.id===id)?.label||id;
-export const normalizeOCRModel=(provider,model)=>provider==='gemini'?model.trim().replace(/^models\//,''):model.trim();
-export const genericGeminiModel=model=>/^(google\s+)?gemini$/i.test(model);
+export {normalizeOCRModel,genericGeminiModel} from './ocr-models.js';
 export function ocrErrorMessage(status,body,provider){
   const label=providerLabel(provider),messages={
     provider_not_configured:'The selected OCR provider is not configured on this gateway. Use Check OCR connection and update the local .env.local file.',

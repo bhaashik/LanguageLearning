@@ -1,5 +1,5 @@
 import {ocrConfigurations,publicOCRConfig,ocrProviderRequest,parseOCRResult,ocrProviderFailure,listGeminiModels,OCRResultError} from './ocr-providers.mjs';
-import {normalizeOCRModel,genericGeminiModel} from '../ocr-settings.js';
+import {normalizeOCRModel,genericGeminiModel} from '../ocr-models.js';
 import {originAllowed} from './origins.mjs';
 export const ocrServerEnabled=(env=process.env)=>Object.values(ocrConfigurations(env)).some(c=>c.key||c.configured);
 export async function handleOCR(req,res,url,{env=process.env,fetcher=fetch}={}){
