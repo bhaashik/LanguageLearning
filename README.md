@@ -19,9 +19,11 @@ Bhaasa teaches Malayalam and French. The Malayalam foundation started from the t
 
 ## Run
 
-The web app's **Connections & models** page provides selectable OCR, TTS, and ASR models and TTS voices. GitHub Pages starts without pretend API URLs; cloud services can use direct Firebase AI Logic or a separate reachable HTTPS gateway, while device voices/recordings and tracing can work offline. [iPad/web gateway setup](docs/PROVIDERS.html#ipad-web) explains the three independent checks and CORS origin settings. This browser's settings do not transfer from a desktop automatically.
+Open **Connections & models**, enter one gateway address and its separate access code, then choose **Connect & check**. Bhaasa discovers the gateway's configured OCR, TTS and ASR providers/models, selects them together, and preserves valid model/voice choices for that gateway. Choose **Remember on this device** only if you want the address and access code retained across browser restarts; otherwise they last for this tab/session. Saved access is restricted to that exact gateway's API routes and is excluded from progress/audio exports. **Forget connection** removes access and matching gateway addresses while keeping progress, recordings, models and voices.
 
-**Settings status** at the top of Connections & models shows each service’s last successful save date, time and timezone on this device. Edits show **Unsaved changes**; failed saves keep the previous successful timestamp. Existing preferences without a recorded time show **No save time recorded** until saved on that page. Voice and ASR times follow the selected language. Gateway access and its save time remain session-only. These indicators report saving, not successful model generation.
+The three service statuses show configuration results and check times. **Settings status** shows successful save dates, times and the device timezone; unsaved edits and storage failures have separate states. Voice and ASR preferences follow the selected learning language. Connect again after switching languages to apply the gateway to that language without replacing its valid saved choices. Metadata checks do not test generation, billing, quota or recognition accuracy.
+
+**Advanced** keeps individual provider/model/voice choices, device voices, recordings and direct Firebase AI Logic available. The normal gateway flow needs neither a Firebase web API key nor a Gemini API key. Device voices, saved recordings and tracing remain available offline. The [web gateway guide](docs/PROVIDERS.html#ipad-web) explains device addresses and allowed origins. Settings stay in the same browser/site on each device; they do not synchronize automatically.
 
 With Node.js 20.12+ (Node 24 recommended), from the cloned repository directory:
 
@@ -98,7 +100,7 @@ The [OCR & speech setup guide](docs/PROVIDERS.html) covers OpenAI, Gemini, Claud
 
 ## Direct Firebase AI Logic in the browser
 
-In **Connections & models → Firebase AI Logic**, enter the **Firebase web API key** and the **public reCAPTCHA Enterprise website Key ID** locally. The project is `bhaashik-apps`, web app `1:1017562072235:web:e1ce9a61407ed034a263ee`. Choose **Firebase AI Logic · direct Gemini** independently for OCR, TTS and ASR, show the model presets, then save each service. No Cloud Function or custom gateway is needed for this route. The Gemini Developer API key stays in the Firebase-managed backend; never enter it into the app. App Check enforcement remains controlled in Firebase Console.
+In **Connections & models → Advanced → Firebase AI Logic**, enter the **Firebase web API key** and the **public reCAPTCHA Enterprise website Key ID** locally. The project is `bhaashik-apps`, web app `1:1017562072235:web:e1ce9a61407ed034a263ee`. Choose **Firebase AI Logic · direct Gemini** independently for OCR, TTS and ASR, show the model presets, then save each service. No Cloud Function or custom gateway is needed for this route. The Gemini Developer API key stays in the Firebase-managed backend; never enter it into the app. App Check enforcement remains controlled in Firebase Console.
 
 The [direct browser guide](docs/FIREBASE.html#direct) covers allowed domains, API restrictions and checking App Check. Configuration stays in this browser and is excluded from progress/audio exports. The SDK is lazy-loaded from the checked-in `vendor/` bundle, with licenses, so GitHub Pages needs no CDN imports. Offline lessons, tracing and saved audio continue to work without Firebase. Cloud generation requires internet. Model presets are suggestions, not an account-specific model discovery result.
 
@@ -113,7 +115,7 @@ Commit the updated bundle and license together with its source and lockfile. The
 
 ## Optional Firebase and Gemini Cloud Functions gateway
 
-Keep the web app on GitHub Pages and deploy the Gemini OCR, TTS, and ASR gateway to your Firebase project. The [Firebase setup guide](docs/FIREBASE.html) covers project/API access, Blaze billing, Secret Manager, exact model IDs, deployment, allowed origins, and connecting each platform. The [deployment template](firebase/) reuses the existing adapters and requires a separate session gateway token; provider keys stay on the server. Initial browser testing works with **Connections & models → Private test gateway access**. Existing v0.7.1 native downloads need rebuilding to include those controls.
+Keep the web app on GitHub Pages and deploy the Gemini OCR, TTS, and ASR gateway to your Firebase project. The [Firebase setup guide](docs/FIREBASE.html) covers project/API access, Blaze billing, Secret Manager, exact model IDs, deployment, allowed origins, and connecting each platform. The [deployment template](firebase/) reuses the existing adapters and requires a separate gateway access token; provider keys stay on the server. Initial browser testing works with **Connections & models → Connect your gateway**. Existing v0.7.1 native downloads need rebuilding to include those controls.
 
 ## Curved tracing and handwriting recognition
 

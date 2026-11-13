@@ -1,7 +1,7 @@
 import {mkdir,copyFile,cp,rm} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-const files=['settings-status.js','ocr-models.js','firebase-client.js','firebase-settings-ui.js','gateway.js','connections-ui.js','feedback-config.js','feedback.js','feedback-transport.js','feedback-page.js','catalog.js','course-content.js','courses-ml.js','courses-fr.js','french.js','repetition.js','speech-learning.js','course-ui.js','asr.js','speaking-ui.js','index.html','platform.js','styles.css','app.js','content.js','learning.js','linguistics.js','phonetics.js','sounds.js','audio.js','audio-store.js','audio-ui.js','speech-presets.js','ocr-settings.js','tracing.js','tracing-pad.js','zip.js','sw.js','manifest.webmanifest'];
+const files=['connection-discovery.js','settings-status.js','ocr-models.js','firebase-client.js','firebase-settings-ui.js','gateway.js','connections-ui.js','feedback-config.js','feedback.js','feedback-transport.js','feedback-page.js','catalog.js','course-content.js','courses-ml.js','courses-fr.js','french.js','repetition.js','speech-learning.js','course-ui.js','asr.js','speaking-ui.js','index.html','platform.js','styles.css','app.js','content.js','learning.js','linguistics.js','phonetics.js','sounds.js','audio.js','audio-store.js','audio-ui.js','speech-presets.js','ocr-settings.js','tracing.js','tracing-pad.js','zip.js','sw.js','manifest.webmanifest'];
 await rm(`${root}dist`,{recursive:true,force:true});await mkdir(`${root}dist`);
 for(const file of files)await copyFile(`${root}${file}`,`${root}dist/${file}`);
 await cp(`${root}vendor`,`${root}dist/vendor`,{recursive:true});

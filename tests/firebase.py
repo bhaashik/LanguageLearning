@@ -51,7 +51,7 @@ with sync_playwright() as p:
     page.route('https://firebasevertexai.googleapis.com/**',ai)
     # Catch unintended provider traffic instead of letting a test contact a live service.
     page.route('https://generativelanguage.googleapis.com/**',lambda route:(_ for _ in ()).throw(AssertionError('Gemini API must stay behind Firebase')))
-    page.goto(BASE+'#connections');expect(page.locator('h1')).to_have_text('Connections & models')
+    page.goto(BASE+'#connections');page.locator('#connection-advanced>summary').click();expect(page.locator('h1')).to_have_text('Connections & models')
     assert not calls and not tokens
     assert not page.evaluate("performance.getEntriesByType('resource').some(r=>r.name.includes('vendor/firebase-ai.js'))")
     page.locator('#firebase-api-key').fill(WEB_KEY);page.locator('#firebase-site-key').fill(SITE_KEY);page.locator('#firebase-save').click()
@@ -96,7 +96,7 @@ with sync_playwright() as p:
     before=len(calls);mode['value']='quota'
     result=page.evaluate("""async()=>{try{const {firebaseClient}=await import('./firebase-client.js');await firebaseClient.ocr('data:image/png;base64,aW5r')}catch(e){return e.message}}""")
     assert 'quota' in result.lower() and len(calls)==before+1
-    page.evaluate("location.hash='connections'");page.wait_for_function("document.body.dataset.route==='connections'")
+    page.evaluate("location.hash='connections'");page.wait_for_function("document.body.dataset.route==='connections'");page.locator('#connection-advanced>summary').click()
     page.locator('#firebase-clear').click();expect(page.locator('#firebase-status')).to_contain_text('removed')
     assert page.evaluate("localStorage.getItem('bhaasa.firebase.web.v1')") is None
     context.set_offline(True)

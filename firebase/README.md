@@ -1,6 +1,6 @@
 # Bhaasa Firebase gateway
 
-Deploy the existing Gemini OCR, TTS, and ASR adapters as one authenticated HTTP Cloud Function. Keep the app on GitHub Pages. Follow [the setup guide](../docs/FIREBASE.html), including billing, Secret Manager, allowed origins, deployment, and the app’s session access token.
+Deploy the existing Gemini OCR, TTS, and ASR adapters as one authenticated HTTP Cloud Function. Keep the app on GitHub Pages. Follow [the setup guide](../docs/FIREBASE.html), including billing, Secret Manager, allowed origins, deployment, and the app’s gateway access code.
 
 Install with Node 22: `npm ci --prefix firebase/functions` from the repository root. Deploy from this folder: `firebase deploy --only functions:bhaasa --project YOUR_PROJECT_ID`. Do not run `firebase init` over the template. It needs your own Google project and login; no cloud credentials are provided in the repository.
 
