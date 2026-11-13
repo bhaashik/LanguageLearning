@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-13",
+  "state": "ready",
+  "files": [
+    {
+      "name": "Bhaasa-Handoff.md",
+      "bytes": 66633,
+      "sha256": "83d2de267df708bf73eaaaf0891370cc3f56a8e0a1bb1716e62d05aa65e51d63"
+    },
+    {
+      "name": "Bhaasa-Transfer-Bundle.zip",
+      "bytes": 4308733,
+      "sha256": "23ff6ccac8f48985d80680d97e1579823f530d68b47d685acc46349c8c8e6efb"
+    },
+    {
+      "name": "Bhaasa-Recovered-Files.zip",
+      "bytes": 95239995,
+      "sha256": "87d490fb7e9954e6a434a12b36e9a79bb910d79de5bba0900c3c6cc1038090f7"
+    }
+  ],
+  "coverage": "Available conversation record and recovered files; not a complete verbatim transcript. Original PDFs and remote Cloud Shell files were unavailable."
+}
