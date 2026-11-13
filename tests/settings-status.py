@@ -22,7 +22,7 @@ with sync_playwright() as p:
       Storage.prototype.setItem=function(key,value){if(window.__failStorage===key)throw new DOMException('Fixture storage full','QuotaExceededError');return write.call(this,key,value)};
     ''')
     page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-    page.goto(BASE+'#connections')
+    page.goto(BASE+'#connections');page.locator('#connection-advanced>summary').click()
     expect(page.get_by_role('heading',name='Settings status',exact=True)).to_be_visible()
     for kind in ['ocr','tts','asr','firebase','gateway']:expect(page.locator('#settings-save-'+kind)).to_contain_text('No save time recorded')
     page.locator('#connection-ocr-provider').select_option('none')
@@ -32,7 +32,7 @@ with sync_playwright() as p:
     assert saved=='2026-11-13T13:40:00.000Z'
     expect(page.locator('#settings-save-ocr')).to_contain_text('Saved on this device')
     expect(page.locator('#settings-save-ocr')).to_contain_text(re.compile(r'19:10:00.*(?:GMT\+5:30|IST)'))
-    page.reload();expect(page.locator('#settings-save-ocr time')).to_have_attribute('datetime',saved)
+    page.reload();page.locator('#connection-advanced>summary').click();expect(page.locator('#settings-save-ocr time')).to_have_attribute('datetime',saved)
     assert 'Unsaved changes' not in page.locator('.settings-save-panel').inner_text()
     print('PASS: exact save time, device timezone and reload persistence without inventing historical save times')
 
@@ -57,14 +57,14 @@ with sync_playwright() as p:
     with page.expect_navigation(wait_until='load'):
         page.locator('#language-choice').select_option('fr')
     expect(page.locator('.breadcrumb')).to_contain_text('FRENCH')
-    page.evaluate("location.hash='connections'")
+    page.evaluate("location.hash='connections'");page.locator('#connection-advanced>summary').click()
     expect(page.locator('#settings-save-tts')).to_contain_text('No save time recorded')
     expect(page.locator('#settings-save-asr')).to_contain_text('No save time recorded')
     expect(page.locator('#settings-save-ocr time')).to_have_attribute('datetime','2026-11-13T13:42:00.000Z')
     with page.expect_navigation(wait_until='load'):
         page.locator('#language-choice').select_option('ml')
     expect(page.locator('.breadcrumb')).to_contain_text('MALAYALAM')
-    page.evaluate("location.hash='connections'")
+    page.evaluate("location.hash='connections'");page.locator('#connection-advanced>summary').click()
     expect(page.locator('#settings-save-tts')).to_contain_text('Saved on this device')
     page.evaluate("window.__failStorage='bhaasa.voices.v1'")
     page.locator('#connection-tts-save').click();expect(page.locator('#settings-save-tts')).to_contain_text('Save failed')
@@ -82,13 +82,13 @@ with sync_playwright() as p:
     assert ACCESS not in page.evaluate('JSON.stringify(localStorage)')
     metadata=page.evaluate('(key)=>localStorage.getItem(key)',LOCAL_KEY)
     assert 'gateway' not in metadata and 'Fixture' not in metadata and 'https:' not in metadata
-    page.reload();expect(page.locator('#settings-save-gateway')).to_contain_text('Saved for this session')
+    page.reload();page.locator('#connection-advanced>summary').click();expect(page.locator('#settings-save-gateway')).to_contain_text('Saved for this session')
     page.locator('#connection-token').locator('..').locator('..').evaluate('e=>e.open=true')
     page.evaluate("window.__failStorage='bhaasa.gateway.access.v1'")
     page.locator('#connection-token').fill(ACCESS);page.locator('#connection-access-save').click()
     expect(page.locator('#settings-save-gateway')).to_contain_text('Save failed')
     page.evaluate('window.__failStorage=null')
-    page.locator('#connection-access-clear').click();expect(page.locator('#settings-save-gateway')).to_contain_text('Forgotten for this session')
+    page.locator('#connection-access-clear').click();expect(page.locator('#settings-save-gateway')).to_contain_text('Connection forgotten')
     assert page.evaluate("sessionStorage.getItem('bhaasa.gateway.access.v1')") is None
     print('PASS: Firebase forget and session-only access timestamps; metadata contains no endpoints or credentials')
 

@@ -1,3 +1,4 @@
+import {gatewayConnection} from './gateway.js';
 const LOCAL_KEY='bhaasa.settings.save-times.v1',SESSION_KEY='bhaasa.settings.session-save-times.v1';
 const kinds=['ocr','tts','asr','firebase','gateway'];
 const labels={ocr:'Handwriting (OCR)',tts:'Listening (TTS)',asr:'Speaking (ASR)',firebase:'Direct Firebase',gateway:'Gateway access'};
@@ -5,13 +6,17 @@ const scopes={ocr:'#connection-ocr',tts:'#connection-tts',asr:'#connection-asr',
 const keyFor=(kind,language)=>['tts','asr'].includes(kind)?`${kind}:${language}`:kind;
 function read(kind,language){
   try{
+    if(kind==='gateway'){
+      const connection=gatewayConnection();
+      if(connection.base&&connection.savedAt>0&&connection.savedAt<=8640000000000000)return {at:connection.savedAt,action:'saved',remember:connection.remember};
+    }
     const storage=kind==='gateway'?sessionStorage:localStorage;
     const entry=JSON.parse(storage.getItem(kind==='gateway'?SESSION_KEY:LOCAL_KEY)||'{}')[keyFor(kind,language)];
     return entry&&Number.isFinite(entry.at)&&entry.at>0&&entry.at<=8640000000000000&&['saved','forgotten'].includes(entry.action)?{at:entry.at,action:entry.action}:null;
   }catch{return null;}
 }
 const formatTime=at=>new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'short'}).format(new Date(at));
-export function settingsStatusPanel(){return `<section class="panel settings-save-panel" aria-labelledby="settings-save-heading"><h2 id="settings-save-heading">Settings status</h2><p>Last successful saves on this page, in this device’s local time. Provider preferences stay in this browser; gateway access lasts for this tab/session. A save does not verify that a model works.</p><ul class="settings-save-list">${kinds.map(kind=>`<li><strong>${labels[kind]}</strong><span id="settings-save-${kind}" role="status" aria-live="polite"></span></li>`).join('')}</ul></section>`;}
+export function settingsStatusPanel(){return `<section class="panel settings-save-panel" aria-labelledby="settings-save-heading"><h2 id="settings-save-heading">Settings status</h2><p>Last successful saves, in this device’s local time. Gateway access stays for this tab/session unless you choose Remember on this device. A save does not verify that a model works.</p><ul class="settings-save-list">${kinds.map(kind=>`<li><strong>${labels[kind]}</strong><span id="settings-save-${kind}" role="status" aria-live="polite"></span></li>`).join('')}</ul></section>`;}
 export function setupSettingsStatus(root,language){
   let dead=false;
   const states=Object.fromEntries(kinds.map(kind=>[kind,{entry:read(kind,language),phase:'clean'}]));
@@ -20,7 +25,7 @@ export function setupSettingsStatus(root,language){
   function render(kind){
     if(dead)return;
     const state=states[kind],node=root.querySelector(`#settings-save-${kind}`),time=state.entry?formatTime(state.entry.at):'';
-    let label=state.entry?(state.entry.action==='forgotten'?'Forgotten':'Saved')+(kind==='gateway'?' for this session':' on this device'):'No save time recorded';
+    let label=state.entry?kind==='gateway'&&state.entry.action==='forgotten'?'Connection forgotten':(state.entry.action==='forgotten'?'Forgotten':'Saved')+(kind==='gateway'&&!state.entry.remember?' for this session':' on this device'):'No save time recorded';
     let tone=state.entry?'saved':'neutral';
     if(state.phase==='dirty'){label='Unsaved changes';tone='dirty';}
     if(state.phase==='saving'){label='Saving…';tone='saving';}
@@ -37,6 +42,7 @@ export function setupSettingsStatus(root,language){
   }
   function saved(kind,{forgotten=false}={}){
     if(dead)return;
+    if(kind==='gateway'&&!forgotten){const entry=read(kind,language);if(entry){states[kind]={entry,phase:'clean'};capture(kind);render(kind);return;}}
     const entry={at:Date.now(),action:forgotten?'forgotten':'saved'};
     try{
       const storage=kind==='gateway'?sessionStorage:localStorage,key=kind==='gateway'?SESSION_KEY:LOCAL_KEY;

@@ -74,7 +74,7 @@ with sync_playwright() as p:
         else:data={'providers':[{'id':'openai','configured':True,'model':'asr-a','models':['asr-a','asr-b']},{'id':'gemini','configured':False,'models':[]}]}
         route.fulfill(json=data,headers=headers)
     page.route(PUBLIC+'**',pages);page.route(GATEWAY+'/**',gateway)
-    page.goto(PUBLIC+'#connections')
+    page.goto(PUBLIC+'#connections');page.locator('#connection-advanced>summary').click()
     expect(page.locator('h1')).to_have_text('Connections & models')
     expect(page.locator('#connection-ocr-provider')).to_have_value('gemini')
     expect(page.locator('#connection-ocr-endpoint')).to_have_value('')
@@ -89,7 +89,7 @@ with sync_playwright() as p:
     page.locator('#connection-token').locator('..').locator('..').evaluate('e=>e.open=true')
     page.locator('#connection-token').fill(ACCESS);page.locator('#connection-access-save').click()
     expect(page.locator('#connection-token')).to_have_value('')
-    expect(page.locator('#connection-access-status')).to_contain_text('Access saved')
+    expect(page.locator('#connection-access-status')).to_contain_text('Connection saved')
     assert ACCESS not in page.evaluate('JSON.stringify(localStorage)')
     page.locator('#connection-tts-provider').select_option('gemini')
     for kind in ['ocr','tts','asr']:
@@ -121,7 +121,7 @@ with sync_playwright() as p:
     page.wait_for_function("()=>new Promise(resolve=>{const r=indexedDB.open('bhaasa.audio.v1');r.onsuccess=()=>{const tx=r.result.transaction('clips'),q=tx.objectStore('clips').getAll();q.onsuccess=()=>resolve(q.result.some(c=>c.model==='tts-b'&&c.voice==='voice-b'))}})")
     print('PASS: chosen OCR/ASR settings reach practice; ASR works without AbortSignal.any; TTS uses and saves selected model/voice')
 
-    nav(page,'connections');modes['/api/transcribe']='html';page.locator('#connection-asr-discover').click();expect(page.locator('#connection-asr-status')).to_contain_text('web page')
+    nav(page,'connections');page.locator('#connection-advanced>summary').click();modes['/api/transcribe']='html';page.locator('#connection-asr-discover').click();expect(page.locator('#connection-asr-status')).to_contain_text('web page')
     modes['/api/transcribe']='error';page.locator('#connection-asr-discover').click();expect(page.locator('#connection-asr-status')).to_contain_text('HTTP 503')
     modes['/api/transcribe']='network';page.locator('#connection-asr-discover').click();expect(page.locator('#connection-asr-status')).to_contain_text('CORS')
     modes['/api/transcribe']='pending';page.locator('#connection-asr-discover').click();page.wait_for_timeout(100)
@@ -135,12 +135,13 @@ with sync_playwright() as p:
     assert len(calls)==before and not public_api
     print('PASS: HTML, HTTP, CORS, stale-response cancellation and invalid static API addresses have clear outcomes')
 
-    page.reload();expect(page.locator('#connection-ocr-endpoint')).to_have_value(GATEWAY+'/api/ocr')
-    expect(page.locator('#connection-access-status')).to_contain_text('Access saved')
+    page.reload();page.locator('#connection-advanced>summary').click();expect(page.locator('#connection-ocr-endpoint')).to_have_value(GATEWAY+'/api/ocr')
+    expect(page.locator('#connection-access-status')).to_contain_text('Connection saved')
     page.locator('#connection-ocr-discover').click();expect(page.locator('#connection-ocr-status')).to_contain_text('2 configured model(s)')
     page.locator('#connection-token').locator('..').locator('..').evaluate('e=>e.open=true')
     page.locator('#connection-access-clear').click()
-    page.locator('#connection-ocr-discover').click();expect(page.locator('#connection-ocr-status')).to_contain_text('access was refused')
+    assert page.evaluate("async base=>{const {gatewayJSON}=await import('./gateway.js');try{await gatewayJSON(base+'/api/ocr')}catch(e){return e.message}}",GATEWAY).find('access was refused')>=0
+    page.locator('#connection-base').fill(GATEWAY);page.locator('#connection-fill').click()
     page.locator('#connection-token').fill(ACCESS);page.locator('#connection-access-save').click()
     page.locator('#language-choice').select_option('fr');page.wait_for_function("document.querySelector('#language-choice').value==='fr'")
     nav(page,'connections')
