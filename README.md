@@ -21,6 +21,8 @@ Bhaasa teaches Malayalam and French. The Malayalam foundation started from the t
 
 The web app's **Connections & models** page provides selectable OCR, TTS, and ASR models and TTS voices. GitHub Pages starts without pretend API URLs; cloud services can use direct Firebase AI Logic or a separate reachable HTTPS gateway, while device voices/recordings and tracing can work offline. [iPad/web gateway setup](docs/PROVIDERS.html#ipad-web) explains the three independent checks and CORS origin settings. This browser's settings do not transfer from a desktop automatically.
 
+**Settings status** at the top of Connections & models shows each service’s last successful save date, time and timezone on this device. Edits show **Unsaved changes**; failed saves keep the previous successful timestamp. Existing preferences without a recorded time show **No save time recorded** until saved on that page. Voice and ASR times follow the selected language. Gateway access and its save time remain session-only. These indicators report saving, not successful model generation.
+
 With Node.js 20.12+ (Node 24 recommended), from the cloned repository directory:
 
 ```sh
