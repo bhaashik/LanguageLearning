@@ -52,8 +52,8 @@ firebase functions:secrets:set BHAASA_GATEWAY_TOKEN --project YOUR_PROJECT_ID</c
 <p>The second token is what you enter in Bhaasa. The Gemini key is never entered there. Do not commit either secret, put it in an endpoint URL, or paste it into chat.</p>
 <p>Copy <code>firebase/functions/env.example</code> to <code>firebase/functions/.env.YOUR_PROJECT_ID</code> using your editor. Because you are now in the <code>firebase</code> directory, the relative paths are <code>functions/env.example</code> and <code>functions/.env.YOUR_PROJECT_ID</code>. Keep only nonsecret settings in that file:</p>
 <pre><code>BHAASA_ALLOWED_ORIGINS=https://bhaashik.github.io,http://127.0.0.1:4173,http://localhost:4173
-BHAASA_OCR_GEMINI_MODEL=gemini-2.5-flash
-BHAASA_ASR_GEMINI_MODEL=gemini-2.5-flash
+BHAASA_OCR_GEMINI_MODEL=gemini-3.1-flash-lite
+BHAASA_ASR_GEMINI_MODEL=gemini-3.1-flash-lite
 BHAASA_TTS_GEMINI_MODEL=gemini-2.5-flash-preview-tts
 BHAASA_TTS_GEMINI_VOICE=Kore</code></pre>
 <p>These model IDs are examples supported by Bhaasa’s adapters, not a promise of current availability or free quota. Use exact IDs available to your project: OCR needs image input and JSON output; ASR needs audio input and JSON output; TTS needs audio output. A generic <code>Gemini</code> label or image-generation model is not interchangeable. Keep a single exact ID per variable in this template.</p>
@@ -63,6 +63,15 @@ BHAASA_TTS_GEMINI_VOICE=Kore</code></pre>
 <p>Copy the exact <strong>Function URL</strong> printed for <code>bhaasaApi</code>. It can be a <code>cloudfunctions.net</code> URL or a Cloud Run <code>.run.app</code> URL. Use what the CLI prints; do not construct a URL from the Firebase app ID.</p>
 <p>Example base URL:</p><pre><code>https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/bhaasaApi</code></pre>
 <p>The Google HTTP invoker is public so a browser can reach it. The function itself requires your separate token; it rejects missing/wrong tokens before model discovery or Gemini generation. If your organization forbids public HTTP invokers, this template needs an approved authentication design before it can be used.</p></section>
+
+<section id="check"><h2>Check an existing gateway</h2>
+<p>For the existing <code>bhaashik-apps</code> deployment, preserve its Google login, provider secret and gateway token. Before redeploying, run <code>npm run firebase:build</code> from an updated repository checkout. It checks that the staged server imports resolve without the browser SDK. Explicit models in <code>functions/.env.bhaashik-apps</code> override source defaults; keep them synchronized with the models you actually tested.</p>
+<p>From the repository root in Cloud Shell, privately load the existing access token and run:</p>
+<pre><code>export BHAASA_GATEWAY_TOKEN="$(gcloud secrets versions access latest --secret=BHAASA_GATEWAY_TOKEN --project=bhaashik-apps)"
+npm run gateway:check -- --base https://bhaasaapi-uvij6mdx3q-uc.a.run.app</code></pre>
+<p>The default check tests Gemini configuration, authentication and browser preflights for all three services, without generation. Add <code>--generate</code> to make one short TTS call and transcribe its returned WAV through ASR; these calls use the API allowance/billing. Add <code>--image /path/to/handwriting.png</code> to send a real drawing for OCR. No expected letter or phrase is supplied to OCR/ASR. Review recognition text manually: a valid response is not proof of recognition accuracy. Known blank-image false positives still need attention.</p>
+<p>Repeat with <code>--origin http://127.0.0.1:4173</code> (or your actual local port, such as 4181) and allow that exact origin in <code>BHAASA_ALLOWED_ORIGINS</code>. Also test the real handwriting, Listen and recorded-speaking controls in Bhaasa. The Gemini provider key remains on the backend throughout. Never paste either secret value into chat or logs.</p>
+</section>
 
 <section id="browser"><h2>3. Connect the browser app</h2>
 <ol>
@@ -74,9 +83,9 @@ BHAASA_TTS_GEMINI_VOICE=Kore</code></pre>
 <li>Try one handwriting recognition, one Listen action on a phrase, and one short recorded speaking check. Discovery alone reads server configuration; it does not prove Gemini authorization, modality support, quota, or recognition quality.</li>
 </ol>
 <div class="table"><table><thead><tr><th>Purpose</th><th>Address relative to function base</th><th>Model example</th></tr></thead><tbody>
-<tr><td>OCR / handwriting</td><td><code>/api/ocr</code></td><td><code>gemini-2.5-flash</code></td></tr>
+<tr><td>OCR / handwriting</td><td><code>/api/ocr</code></td><td><code>gemini-3.1-flash-lite</code></td></tr>
 <tr><td>TTS / listening</td><td><code>/api/speech</code> (model list: <code>/api/speech/models</code>)</td><td><code>gemini-2.5-flash-preview-tts</code></td></tr>
-<tr><td>ASR / speaking check</td><td><code>/api/transcribe</code></td><td><code>gemini-2.5-flash</code></td></tr>
+<tr><td>ASR / speaking check</td><td><code>/api/transcribe</code></td><td><code>gemini-3.1-flash-lite</code></td></tr>
 </tbody></table></div>
 <p>These are your Bhaasa gateway URLs, not Google’s <code>generativelanguage.googleapis.com</code> endpoint. Opening a protected URL in another browser tab ordinarily shows <code>gateway_access_required</code>: that navigation has no token header. Use Bhaasa’s Discover buttons after saving access.</p></section>
 

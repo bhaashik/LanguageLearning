@@ -5,8 +5,8 @@ import {createCloudGateway,geminiEnvironment} from './lib/gateway/cloud-handler.
 const apiKey=defineSecret('BHAASA_GEMINI_API_KEY');
 const accessToken=defineSecret('BHAASA_GATEWAY_TOKEN');
 const origins=defineString('BHAASA_ALLOWED_ORIGINS',{default:'https://bhaashik.github.io'});
-const ocrModel=defineString('BHAASA_OCR_GEMINI_MODEL',{default:'gemini-2.5-flash'});
-const asrModel=defineString('BHAASA_ASR_GEMINI_MODEL',{default:'gemini-2.5-flash'});
+const ocrModel=defineString('BHAASA_OCR_GEMINI_MODEL',{default:'gemini-3.1-flash-lite'});
+const asrModel=defineString('BHAASA_ASR_GEMINI_MODEL',{default:'gemini-3.1-flash-lite'});
 const ttsModel=defineString('BHAASA_TTS_GEMINI_MODEL',{default:'gemini-2.5-flash-preview-tts'});
 const voice=defineString('BHAASA_TTS_GEMINI_VOICE',{default:'Kore'});
 

@@ -25,7 +25,7 @@ export class AudioLibrary {
     try{const voices=bridge?await bridge.getVoices():window.speechSynthesis?.getVoices()||[];this.voices=voices.filter(v=>v.lang.toLowerCase().replace('_','-').split('-')[0]===this.language);}catch{this.voices=[];}
     return this.voices;
   }
-  persist(){try{localStorage.setItem(this.prefKey,JSON.stringify({profiles:this.profiles,activeId:this.activeId,autoSave:this.autoSave}));}catch{this.notify('Voice preferences could not be saved in this browser.');}}
+  persist(){try{localStorage.setItem(this.prefKey,JSON.stringify({profiles:this.profiles,activeId:this.activeId,autoSave:this.autoSave}));return true;}catch{this.notify('Voice preferences could not be saved in this browser.');return false;}}
   choose(id){if(this.profiles.some(p=>p.id===id)){this.activeId=id;this.persist();}}
   add(profile){
     if(!['service','recording','device'].includes(profile.kind)||!['name','provider','model','voice'].every(k=>typeof profile[k]==='string'&&profile[k].trim()&&profile[k].length<200))throw Error('Give this voice a name, provider, model, and voice identifier.');

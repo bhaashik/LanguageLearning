@@ -14,9 +14,9 @@ export function setGatewayAccess(base,token){
   if(/\/api\/(ocr|speech|transcribe)(?:\/models)?$/.test(url.pathname))throw Error('Use the gateway base URL, without an /api/… suffix.');
   if(!/^[A-Za-z0-9_-]{32,256}$/.test(token))throw Error('Enter the separate gateway access token (32–256 letters, digits, underscores or hyphens). Keep the Gemini API key on Firebase.');
   access={base:address,token};
-  try{globalThis.sessionStorage?.setItem(ACCESS_STORAGE,JSON.stringify(access));}catch{}
+  try{if(!globalThis.sessionStorage)return false;globalThis.sessionStorage.setItem(ACCESS_STORAGE,JSON.stringify(access));return true;}catch{return false;}
 }
-export function clearGatewayAccess(){access=null;try{globalThis.sessionStorage?.removeItem(ACCESS_STORAGE);}catch{}}
+export function clearGatewayAccess(){access=null;try{globalThis.sessionStorage?.removeItem(ACCESS_STORAGE);return true;}catch{return false;}}
 // A test gateway token belongs to one exact gateway base and its API routes.
 // Never send it to a different host, another function, or an arbitrary URL.
 export function gatewayHeaders(endpoint,headers={}){
