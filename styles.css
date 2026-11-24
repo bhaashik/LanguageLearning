@@ -53,3 +53,21 @@ html[data-native] .toast{bottom:calc(22px + env(safe-area-inset-bottom,0px))}htm
 .settings-save-panel{max-width:1000px;margin-bottom:24px}.settings-save-panel h2{font-size:22px}.settings-save-panel>p{font-size:12px;line-height:1.8;color:var(--muted)}.settings-save-list{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:12px}.settings-save-list li{display:grid;grid-template-columns:minmax(140px,180px) minmax(0,1fr);gap:8px 18px;align-items:start;font-size:12px;line-height:1.8}.settings-save-list strong{font-weight:600}.settings-save-list span{overflow-wrap:anywhere;color:var(--muted)}.settings-save-list [data-state="saved"]{color:#245d41}.settings-save-list [data-state="dirty"]{color:#875411}.settings-save-list [data-state="failed"]{color:#a02e2e}.settings-save-list [data-state="saving"]{color:var(--green)}@media(max-width:640px){.settings-save-list li{grid-template-columns:1fr;gap:2px}.settings-save-panel{padding:20px}}
 
 .connection-intro>label{margin:16px 0}.connection-intro .remember-choice{flex-direction:row;align-items:center;gap:10px}.connection-intro .remember-choice input{width:20px;height:20px;flex-shrink:0;accent-color:var(--green)}.gateway-service-grid{max-width:1000px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:24px}.gateway-service{padding:20px;min-width:0}.gateway-service h2{font-size:16px}.gateway-service p{font-size:12px;line-height:1.8;overflow-wrap:anywhere}.gateway-service time{display:block;font-size:11px;margin-top:8px;color:var(--muted)}.gateway-service [data-state="configured"]{color:#245d41}.gateway-service [data-state="failed"]{color:#a02e2e}.connection-advanced{max-width:1000px;margin-bottom:24px}.connection-advanced>summary{cursor:pointer;font-weight:600;line-height:1.7}.connection-advanced>p{font-size:13px;line-height:1.8}.connection-advanced .connection-card{margin-top:24px}.connection-advanced>.button-row{flex-wrap:wrap}@media(max-width:700px){.gateway-service-grid{grid-template-columns:1fr}.connection-advanced{padding:20px}}
+
+/* Numbers course: cards remain readable on phones and in packaged webviews. */
+.numbers-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin:1rem 0}
+.numbers-fields label{display:flex;flex-direction:column;gap:.4rem;font-size:.9rem}
+.numbers-fields input,.numbers-fields select{max-width:100%;width:100%;box-sizing:border-box;padding:.65rem;border:1px solid var(--line,#d8dfd9);border-radius:8px;background:var(--paper,#fff);color:inherit;font:inherit}
+.numbers-controls{margin-bottom:1.5rem}.numbers-controls p{max-width:80ch;line-height:1.65}.numbers-controls details{margin:1rem 0}
+.numbers-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin:.8rem 0}
+.numbers-actions .button{white-space:normal;text-align:center}.numbers-actions label{cursor:pointer}
+.numbers-notes{margin-bottom:1.5rem;line-height:1.7}.numbers-notes summary{cursor:pointer;font-weight:600}
+.numbers-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:1rem}
+.number-card{min-width:0;scroll-margin-top:2rem}.number-card header{display:flex;justify-content:space-between;gap:1rem;align-items:baseline}
+.number-card h2{margin:0;font-size:2rem}.number-card h2 span{font-family:Malayalam,sans-serif;font-size:1rem;margin-left:.7rem;color:var(--muted,#627269)}
+.number-card header p{text-transform:capitalize}.number-malayalam{font-family:Malayalam,sans-serif;font-size:1.7rem;line-height:1.9;overflow-wrap:anywhere}
+.number-card dl{display:grid;grid-template-columns:6.2rem minmax(0,1fr);gap:.65rem .5rem;font-size:.92rem;line-height:1.6}
+.number-card dt{font-weight:600;color:var(--muted,#627269)}.number-card dd{margin:0;overflow-wrap:anywhere}.number-card dd small{font-size:.85rem;color:var(--muted,#627269)}
+.number-ipa{font-family:'DejaVu Sans','Arial',sans-serif}.numbers-device[hidden],.numbers-service[hidden]{display:none}
+#numbers-status{font-weight:600}#numbers-settings-status,#numbers-saved{font-size:.88rem}
+#numbers-section>.page-heading{display:block}#numbers-section>.page-heading>.text-button{margin-top:1rem}

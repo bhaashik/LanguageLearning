@@ -91,7 +91,7 @@ export class FirebaseClient {
   async speech(input,options={}){
     if(typeof input!=='string'||!input.trim()||input.length>10000)throw Error('Choose a shorter, nonempty text for speech.');
     if(options.voice&&!/^[A-Za-z]{1,50}$/.test(options.voice))throw Error('Enter a valid Gemini prebuilt voice name.');
-    const {response}=await this.generate('tts',[{text:`Read the following ${options.language?.startsWith('fr')?'French':'Malayalam'} text aloud exactly as written, without commentary. Text:\n${input}`}],options);
+    const {response}=await this.generate('tts',[{text:`Read the following ${options.language?.startsWith('en')?'English':options.language?.startsWith('fr')?'French':'Malayalam'} text aloud exactly as written, without commentary. Text:\n${input}`}],options);
     return pcmToWav(completedResponse(response));
   }
 }

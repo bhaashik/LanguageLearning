@@ -143,7 +143,7 @@ with sync_playwright() as p:
     assert page.evaluate("async base=>{const {gatewayJSON}=await import('./gateway.js');try{await gatewayJSON(base+'/api/ocr')}catch(e){return e.message}}",GATEWAY).find('access was refused')>=0
     page.locator('#connection-base').fill(GATEWAY);page.locator('#connection-fill').click()
     page.locator('#connection-token').fill(ACCESS);page.locator('#connection-access-save').click()
-    page.locator('#language-choice').select_option('fr');page.wait_for_function("document.querySelector('#language-choice').value==='fr'")
+    page.locator('#language-choice').select_option('fr');page.wait_for_function("document.querySelector('#language-choice')?.value==='fr'")
     nav(page,'connections')
     expect(page.locator('#connection-tts-provider')).to_have_value('device')
     expect(page.locator('#connection-tts-device')).to_contain_text('French fixture')

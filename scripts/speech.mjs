@@ -17,7 +17,7 @@ export async function handleSpeech(req,res,url,{env=process.env,fetcher=fetch,re
   if(req.method==='OPTIONS'){res.writeHead(204,{...headers,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Accept'}).end();return true;}
   const cfg=speechConfig(env);
   if(req.method==='GET'&&url.pathname.endsWith('/models')){
-    res.writeHead(200,{...headers,'Content-Type':'application/json'}).end(JSON.stringify({configured:cfg.ready,provider:cfg.provider,setupRequired:!cfg.ready,models:cfg.ready?cfg.models.map(id=>({id,provider:cfg.provider,api:cfg.provider==='openai'?(isRealtimeModel(id)?'realtime':'speech'):undefined,retirement:OPENAI_MODELS.find(m=>m.id===id)?.retirement,voices:cfg.provider==='openai'?openAIVoices(id).map(voice=>({id:voice,name:voice,gender:'unspecified'})):cfg.voice?[{id:cfg.voice,name:cfg.voice,gender:'unspecified'}]:[]})):[]}));return true;
+    res.writeHead(200,{...headers,'Content-Type':'application/json'}).end(JSON.stringify({configured:cfg.ready,provider:cfg.provider,setupRequired:!cfg.ready,models:cfg.ready?cfg.models.map(id=>({id,provider:cfg.provider,api:cfg.provider==='openai'?(isRealtimeModel(id)?'realtime':'speech'):undefined,retirement:OPENAI_MODELS.find(m=>m.id===id)?.retirement,voices:cfg.provider==='openai'?openAIVoices(id).map(voice=>({id:voice,name:voice,gender:'unspecified'})):cfg.provider==='gemini'?[{id:cfg.voice,name:cfg.voice,gender:cfg.voice==='Kore'?'female':cfg.voice==='Charon'?'male':'unspecified'},...['Charon','Kore'].filter(v=>v!==cfg.voice).map(v=>({id:v,name:v,gender:v==='Charon'?'male':'female'}))]:cfg.voice?[{id:cfg.voice,name:cfg.voice,gender:'unspecified'}]:[]})):[]}));return true;
   }
   if(req.method!=='POST'||url.pathname!=='/api/speech'){res.writeHead(405,headers).end('Method not allowed');return true;}
   if(!cfg.ready){res.writeHead(503,headers).end('No speech provider configured');return true;}
@@ -25,7 +25,7 @@ export async function handleSpeech(req,res,url,{env=process.env,fetcher=fetch,re
   try{
     const chunks=[];let size=0;for await(const c of req){size+=c.length;if(size>65536)throw Error('Request too large');chunks.push(c);}
     const data=JSON.parse(Buffer.concat(chunks).toString());
-    const language=data.language||'ml-IN';if(!['ml','ml-IN','fr','fr-FR'].includes(language)){res.writeHead(400,headers).end('Unsupported reading language');return true;}
+    const language=data.language||'ml-IN';if(!['ml','ml-IN','fr','fr-FR','en','en-US','en-GB','en-IN'].includes(language)){res.writeHead(400,headers).end('Unsupported reading language');return true;}
     const instructions=readingInstructions(language);
     if(typeof data.input!=='string'||!data.input.trim()||data.input.length>10000||!cfg.models.includes(data.model)||data.provider!==cfg.provider||typeof data.voice!=='string'||!data.voice||data.voice.length>200){res.writeHead(400,headers).end('Check input, configured model, provider, and voice');return true;}
     if(cfg.provider==='openai'&&data.input.length>4096){res.writeHead(400,headers).end('Choose a smaller item: OpenAI requests are limited to 4096 characters.');return true;}
@@ -39,7 +39,7 @@ export async function handleSpeech(req,res,url,{env=process.env,fetcher=fetch,re
       body={model:data.model,input:data.input,voice:openAIVoice(data.voice),response_format:'mp3',speed:.85,...(data.model.startsWith('gpt-4o-mini-tts')?{instructions}:{})};
     }else if(cfg.provider==='gemini'){
       endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(data.model.replace(/^models\//,''))}:generateContent`;remoteHeaders['x-goog-api-key']=env.BHAASA_TTS_API_KEY;
-      body={contents:[{parts:[{text:`Read the following ${language.startsWith('fr')?'French':'Malayalam'} text aloud, exactly as written, without adding commentary. This is language-learning audio. Text:\n${data.input}`}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:data.voice}}}}};
+      body={contents:[{parts:[{text:`Read the following ${language.startsWith('en')?'English':language.startsWith('fr')?'French':'Malayalam'} text aloud, exactly as written, without adding commentary. This is language-learning audio. Text:\n${data.input}`}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:data.voice}}}}};
     }else if(cfg.provider==='elevenlabs'){
       endpoint=env.BHAASA_TTS_URL||`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(data.voice)}`;remoteHeaders['xi-api-key']=env.BHAASA_TTS_API_KEY;
       body={text:data.input,model_id:data.model};

@@ -34,6 +34,10 @@ npm run dev
 
 The development server uses port 4173 (`PORT` overrides it). Any static HTTP server also serves the core app; HTTPS or localhost is required for installation, offline caching, and microphone access. Do not open `index.html` through `file://`.
 
+## Numbers 1–100
+
+**Numbers 1–100** adds a Malayalam–English list with digits, Malayalam script, broad IPA, extended IAST, and plain Roman glosses. Listen in Malayalam male/female and English male/female voices, with adjustable pauses. Generate recordings once through the saved Gemini/Firebase speech connection, reuse them offline, and export individual-number or range WAV files with the pauses included, or a ZIP of separate clips. The full written list downloads as CSV. Playback settings show their local save time. See [Numbers and gateway setup](docs/NUMBERS.md), including the separate Firebase gateway update needed for English speech. Synthetic pronunciation needs speaker review; no generated recordings are bundled with the app.
+
 ## Constructions, speaking, and spaced reviews
 +
 +Choose **Malayalam** or **French** in the language selector. Each language retains its own progress, recap, reviews, voice preferences, and audio collection. Malayalam includes its existing script/tracing course; French adds the Latin alphabet, accent marks/ligatures, starter vocabulary, phrases, and six sound topics.
