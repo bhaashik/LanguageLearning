@@ -35,7 +35,7 @@ export async function exportAudio(clips){
   const entries=[],manifest={format:'bhaasa-audio-v1',clips:[]};
   for(const [i,clip] of clips.entries()){
     const ext=clip.mime.includes('mpeg')?'mp3':clip.mime.includes('wav')?'wav':clip.mime.includes('ogg')?'ogg':clip.mime.includes('mp4')?'m4a':'webm';
-    const name=`${clip.language==='fr'?'french':'malayalam'}/${slug(clip.section)}/${slug(clip.scope)}/${slug(clip.itemId)}/${slug(clip.provider)}/${slug(clip.model)}/${slug(clip.voice)}-${i}.${ext}`;
+    const name=`${clip.language==='fr'?'french':clip.language==='en'?'english':'malayalam'}/${slug(clip.section)}/${slug(clip.scope)}/${slug(clip.itemId)}/${slug(clip.provider)}/${slug(clip.model)}/${slug(clip.voice)}-${i}.${ext}`;
     const {blob,key,...metadata}=clip;manifest.clips.push({...metadata,path:name});entries.push({name,data:new Uint8Array(await blob.arrayBuffer())});
   }
   entries.unshift({name:'manifest.json',data:new TextEncoder().encode(JSON.stringify(manifest,null,2))});

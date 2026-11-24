@@ -60,3 +60,9 @@ test('static build includes the local SDK and license, and lazy client has no Ge
   assert.match(bundle,/firebasevertexai.googleapis.com/);assert.match(bundle,/X-Firebase-AppCheck/);
   assert.ok((await readFile(new URL('../vendor/firebase-ai.js.LEGAL.txt',import.meta.url),'utf8')).includes('Apache'));
 });
+
+test('English numbers use an English prompt with the selected Gemini voice',async()=>{
+  const f=fixture();f.setResponse({candidates:[{finishReason:'STOP',content:{parts:[{inlineData:{mimeType:'audio/L16;rate=24000',data:'AQACAAMA'}}]}}]});
+  await f.client.speech('one hundred',{voice:'Charon',language:'en-US'});
+  const request=f.calls.find(c=>c[0]==='request');assert.match(JSON.stringify(request),/English/);assert.ok(!JSON.stringify(request).includes('Malayalam'));
+});

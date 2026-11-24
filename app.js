@@ -13,6 +13,8 @@ import {speakingPanel,setupSpeaking} from './speaking-ui.js';
 import {recordSpeaking,dueSpeaking} from './speech-learning.js';
 import {feedbackPage,setupFeedback} from './feedback-page.js';
 import {connectionsPage,setupConnections} from './connections-ui.js';
+import {numberTargets} from './numbers.js';
+import {numbersPage,setupNumbers} from './numbers-ui.js';
 import {gatewayJSON} from './gateway.js';
 const {vowels,consonants,signs,chillus,conjuncts,scriptItems,writingItems,syllableBases,syllablePatterns,syllableForms,words,phrases,grammarItems,phoneticsItems,soundTopics,sections,lessons,allItems,byId,units,constructionItems}=catalog;
 const STORAGE_KEY=language==='ml'?MALAYALAM_STORAGE_KEY:'bhaasa.progress.fr.v2';
@@ -47,7 +49,8 @@ let traceCleanup=()=>{};
 let speakingCleanup=()=>{},speakingPause=()=>{};
 let feedbackCleanup=()=>{},feedbackPause=()=>{};
 let connectionsCleanup=()=>{};
-const audioTargets={...byId};
+let numbersCleanup=()=>{},numbersPause=()=>{};
+const audioTargets={...byId,...(language==='ml'?Object.fromEntries(Object.entries(numberTargets).filter(([,target])=>target.language==='ml')):{})};
 for(const l of lessons)audioTargets[`lesson-${l.id}`]={id:`lesson-${l.id}`,language,kind:'lesson',section:l.items[0].section,title:l.title,roman:l.title,ml:l.items.map(i=>i.ml).join(' … ')};
 for(const s of sections)audioTargets[`section-${s.id}`]={id:`section-${s.id}`,language,kind:'section',section:s.id,title:s.title,roman:s.title,ml:allItems.filter(i=>i.section===s.id&&i.kind!=='syllable').map(i=>i.ml).join(' … ')};
 let audioTargetId=Object.keys(byId)[0];
@@ -67,7 +70,7 @@ const icons={
   search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',
   download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>'
 };
-icons.phonetics=icons.sound;icons.audio=icons.sound;icons.speaking=icons.sound;icons.constructions=icons.grammar;icons.feedback=icons.grammar;icons.connections=icons.grammar;
+icons.numbers=icons.words;icons.phonetics=icons.sound;icons.audio=icons.sound;icons.speaking=icons.sound;icons.constructions=icons.grammar;icons.feedback=icons.grammar;icons.connections=icons.grammar;
 function icon(name,cls='') {return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.learn}</svg>`;}
 function toast(message) {$('#toast').textContent=message;$('#toast').classList.add('visible'); clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4500);}
 function save() {try {localStorage.setItem(STORAGE_KEY,JSON.stringify(progress));storageOK=true;} catch {storageOK=false;toast('This browser cannot save progress. Export a backup from Your progress.');}}
@@ -115,7 +118,7 @@ function recap(){
 }
 
 function shell(content,section) {
-  const nav=[['learn','Learn'],['script','Writing system'],['phonetics',`Sounds of ${languageInfo.name}`],['words','Words & phrases'],['grammar','Grammar'],['constructions','Useful constructions'],['speaking','Speak & listen'],['review','Practice'],['audio','Voices & recordings'],['connections','Connections & models'],['progress','Your progress'],['feedback','Give feedback']];
+  const nav=[['learn','Learn'],['script','Writing system'],['phonetics',`Sounds of ${languageInfo.name}`],['words','Words & phrases'],['numbers','Numbers 1–100'],['grammar','Grammar'],['constructions','Useful constructions'],['speaking','Speak & listen'],['review','Practice'],['audio','Voices & recordings'],['connections','Connections & models'],['progress','Your progress'],['feedback','Give feedback']];
   return `<a class="skip" href="#main">Skip to content</a>
   <aside class="sidebar">
     <a class="brand" href="#learn" aria-label="Bhaasa home"><img src="./assets/icon.svg" alt="" width="38" height="38"><span>Bhaasa<small>A LITTLE, EVERY DAY</small></span></a>
@@ -253,12 +256,14 @@ function render(focus=false) {
   traceCleanup();speakingCleanup();speakingCleanup=()=>{};speakingPause=()=>{};
   feedbackCleanup();feedbackCleanup=()=>{};feedbackPause=()=>{};
   connectionsCleanup();connectionsCleanup=()=>{};
+  numbersCleanup();numbersCleanup=()=>{};numbersPause=()=>{};
   const [page,id]=route().split('/');
   let content,section=page;
   switch(page) {
     case 'learn':content=dashboard();break;
     case 'script':content=scriptPage();break;
     case 'words':content=wordsPage();break;
+    case 'numbers':content=numbersPage();break;
     case 'grammar':content=grammarPage();break;
     case 'constructions':content=constructionsPage(units,id,{linguistic,playButton,progress,languageName:languageInfo.name});break;
     case 'speaking':content=speakingPage(id);break;
@@ -275,7 +280,8 @@ function render(focus=false) {
   }
   $('#app').innerHTML=shell(content,section);
   document.body.dataset.route=route();
-  document.title=`${({learn:'Learn',script:'Writing system',words:'Words & phrases',grammar:'Grammar',phonetics:`Sounds of ${languageInfo.name}`,constructions:'Useful constructions',speaking:'Speak & listen',audio:'Voices & recordings',lesson:'Lesson',item:'Explore & write',review:'Practice',progress:'Your progress',feedback:'Give feedback',connections:'Connections & models',about:'About'})[page]||'Learn'} · Bhaasa`;
+  document.title=`${({learn:'Learn',numbers:'Numbers 1–100',script:'Writing system',words:'Words & phrases',grammar:'Grammar',phonetics:`Sounds of ${languageInfo.name}`,constructions:'Useful constructions',speaking:'Speak & listen',audio:'Voices & recordings',lesson:'Lesson',item:'Explore & write',review:'Practice',progress:'Your progress',feedback:'Give feedback',connections:'Connections & models',about:'About'})[page]||'Learn'} · Bhaasa`;
+  if(page==='numbers'){const control=setupNumbers({audio,notify:toast});numbersCleanup=control.cleanup;numbersPause=control.pause;}
   if(page==='connections')connectionsCleanup=setupConnections({audio,language,languageName:languageInfo.name,notify:toast});
   if(page==='feedback'){const control=setupFeedback(language);feedbackCleanup=control.cleanup;feedbackPause=control.pause;}
   if(page==='item'&&byId[id]&&$('#writing-canvas'))setupCanvas(byId[id]);
@@ -419,7 +425,7 @@ $('#app').addEventListener('change',async e=>{
     if(e.target.id==='voice-gender-filter'){$('#active-voice').querySelectorAll('option').forEach(o=>{o.hidden=e.target.value!=='all'&&o.dataset.gender!==e.target.value;});}
     if(e.target.id==='audio-target'){audioTargetId=e.target.value;if(route()===`audio/${audioTargetId}`)render();else location.hash=`audio/${audioTargetId}`;}
     if(e.target.id==='audio-file'&&e.target.files[0]){await audio.store(audioTargets[audioTargetId],audio.active,e.target.files[0],'file');toast('Audio saved for the selected target and voice.');}
-    if(e.target.id==='audio-backup'&&e.target.files[0]){const count=await audio.import(e.target.files[0],audioTargets,$('#audio-overwrite').checked);toast(`${count} audio clips imported.`);}
+    if(e.target.id==='audio-backup'&&e.target.files[0]){const count=await audio.import(e.target.files[0],{...audioTargets,...numberTargets},$('#audio-overwrite').checked);toast(`${count} audio clips imported.`);}
     if(e.target.id==='voice-kind'){
       const f=$('#voice-form');const kind=e.target.value;
       if(kind!=='service'){f.elements.provider.value=kind==='device'?'device':'human';f.elements.model.value=kind==='device'?'speech-synthesis':'recording';f.elements.voice.value=kind==='device'?'default':'speaker-1';}f.elements.endpoint.disabled=kind!=='service';
@@ -443,8 +449,8 @@ updateVoices();window.speechSynthesis?.addEventListener('voiceschanged',updateVo
 render();
 audio.onChange=()=>{if(route().startsWith('audio'))render();};
 audio.load().then(()=>{audioVoices=audio.voices;if(route().startsWith('audio'))render();else if($('#voice-note'))$('#voice-note').innerHTML=voiceNote();});
-window.addEventListener('pagehide',()=>{feedbackPause();speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
-window.addEventListener('bhaasa:pause',()=>{feedbackPause();speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
+window.addEventListener('pagehide',()=>{numbersPause();feedbackPause();speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
+window.addEventListener('bhaasa:pause',()=>{numbersPause();feedbackPause();speakingPause();savePosition();audio.stopRecording();audio.stopPlayback();});
 if(!isNativeApp()&&!isDesktopApp()&&'serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(reg=>reg.active?.postMessage({type:'CHECK_OFFLINE'})).catch(()=>{offlineReady=false;updateConnection();});
   navigator.serviceWorker.addEventListener('message',e=>{
